@@ -232,7 +232,7 @@ void main() {
       expect(model, isViewportLayout(contentSize: const Size(800, 200)));
     });
 
-    testWidgets('OnaBottomSheet height should not be restricted by the viewport padding', (tester) async {
+    testWidgets('RawSheet height should not be restricted by the viewport padding', (tester) async {
       final model = _TestSheetModel();
       final env = boilerplate(
         model: model,

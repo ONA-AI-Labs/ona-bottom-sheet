@@ -31,9 +31,14 @@ const Cubic _releasedPageForwardAnimationCurve = Curves.fastLinearToSlowEaseIn;
 /// {@endtemplate}
 typedef OnaSheetBarrierBuilder<T> = Widget Function(ModalRoute<T> route, VoidCallback onDismissCallback);
 
+/// Builds the [OnaSheetViewport] a modal sheet lives in, around [child].
 typedef OnaSheetViewportBuilder = Widget Function(BuildContext context, Widget child);
 
+/// A modal sheet as a [Page], for declarative navigation (Navigator 2.0 and routers built on it).
+///
+/// It behaves as [OnaBottomSheetRoute]; [child] is the sheet, typically an [OnaBottomSheet].
 class OnaBottomSheetPage<T> extends Page<T> {
+  /// Creates a page that shows [child] as a modal sheet.
   const OnaBottomSheetPage({
     super.key,
     super.name,
@@ -46,36 +51,53 @@ class OnaBottomSheetPage<T> extends Page<T> {
     this.barrierLabel,
     this.barrierColor = Colors.black54,
     this.transitionDuration = const Duration(milliseconds: 300),
+    this.dismissDuration,
     this.transitionCurve = Curves.fastEaseInToSlowEaseOut,
     this.swipeDismissSensitivity = const SwipeDismissSensitivity(),
     this.viewportBuilder,
     this.barrierBuilder,
+    this.semanticsLabel,
     required this.child,
   });
 
   /// The content to be shown in the [Route] created by this page.
   final Widget child;
 
+  /// Builds the viewport the sheet lives in; by default a plain [OnaSheetViewport].
   final OnaSheetViewportBuilder? viewportBuilder;
 
   /// {@macro flutter.widgets.ModalRoute.maintainState}
   final bool maintainState;
 
+  /// Whether the route is a full-screen dialog (the route below then skips its own exit transition).
   final bool fullscreenDialog;
 
+  /// The colour laid over the page behind the sheet.
   final Color? barrierColor;
 
+  /// Whether a tap on the barrier closes the sheet.
   final bool barrierDismissible;
 
+  /// What screen readers call the barrier.
   final String? barrierLabel;
 
+  /// Whether a downward swipe can close the sheet.
   final bool swipeDismissible;
 
+  /// How long the sheet takes to come in.
   final Duration transitionDuration;
 
+  /// How long the sheet takes to go away without a swipe; [transitionDuration] when null.
+  final Duration? dismissDuration;
+
+  /// The curve the sheet comes in on, reversed on the way out.
   final Curve transitionCurve;
 
+  /// How readily a swipe closes the sheet.
   final SwipeDismissSensitivity swipeDismissSensitivity;
+
+  /// What screen readers call the sheet; the platform's "bottom sheet" label when null.
+  final String? semanticsLabel;
 
   /// {@macro modal_sheet_barrier_builder}
   final OnaSheetBarrierBuilder<T>? barrierBuilder;
@@ -113,6 +135,12 @@ class _PageBasedBottomSheetRoute<T> extends PageRoute<T> with OnaBottomSheetRout
   Duration get transitionDuration => _page.transitionDuration;
 
   @override
+  Duration get reverseTransitionDuration => _page.dismissDuration ?? _page.transitionDuration;
+
+  @override
+  String? get semanticsLabel => _page.semanticsLabel;
+
+  @override
   SwipeDismissSensitivity get swipeDismissSensitivity => _page.swipeDismissSensitivity;
 
   @override
@@ -130,7 +158,11 @@ class _PageBasedBottomSheetRoute<T> extends PageRoute<T> with OnaBottomSheetRout
   }
 }
 
+/// A route that shows a sheet over the current page, with a barrier, swipe-to-close and back-gesture support.
+///
+/// [showOnaBottomSheet] pushes one styled by the [OnaBottomSheetTheme]; construct it directly for full control.
 class OnaBottomSheetRoute<T> extends PageRoute<T> with OnaBottomSheetRouteMixin<T> {
+  /// Creates a modal sheet route.
   OnaBottomSheetRoute({
     super.settings,
     super.fullscreenDialog,
@@ -142,14 +174,28 @@ class OnaBottomSheetRoute<T> extends PageRoute<T> with OnaBottomSheetRouteMixin<
     this.barrierColor = Colors.black54,
     this.swipeDismissible = false,
     this.transitionDuration = const Duration(milliseconds: 300),
+    this.dismissDuration,
     this.transitionCurve = Curves.fastEaseInToSlowEaseOut,
     this.swipeDismissSensitivity = const SwipeDismissSensitivity(),
     this.barrierBuilder,
+    this.semanticsLabel,
   });
 
+  /// Builds the sheet; it should return a sheet widget such as [OnaBottomSheet], not an [OnaSheetViewport], which
+  /// the route adds itself.
   final WidgetBuilder builder;
 
+  /// Builds the viewport the sheet lives in; by default a plain [OnaSheetViewport].
   final OnaSheetViewportBuilder? viewportBuilder;
+
+  /// How long the route takes to go away when it is popped without a swipe; [transitionDuration] when null.
+  final Duration? dismissDuration;
+
+  @override
+  final String? semanticsLabel;
+
+  @override
+  Duration get reverseTransitionDuration => dismissDuration ?? transitionDuration;
 
   @override
   final Color? barrierColor;
@@ -189,11 +235,34 @@ class OnaBottomSheetRoute<T> extends PageRoute<T> with OnaBottomSheetRouteMixin<
   }
 }
 
+/// The behaviour every modal sheet route shares: the barrier, swipe-to-close, the transition, and the sheet's
+/// visibility.
 mixin OnaBottomSheetRouteMixin<T> on ModalRoute<T> {
+  /// Whether a downward swipe can close the sheet.
   bool get swipeDismissible;
 
+  /// What screen readers call the sheet; the platform's "bottom sheet" label when null.
+  String? get semanticsLabel => null;
+
+  /// The speed, in viewport heights per second, a swipe was released at when it closed the sheet; consumed by the
+  /// pop's [createSimulation].
+  double? _releaseSpeed;
+
+  /// A swipe released into a close carries the sheet away at the finger's speed, never slower than an ordinary
+  /// close; any other pop uses the [reverseTransitionDuration].
+  @override
+  Simulation? createSimulation({required bool forward}) {
+    final speed = _releaseSpeed;
+    _releaseSpeed = null;
+    if (forward || speed == null || controller == null) return null;
+    final ordinary = reverseTransitionDuration.inMicroseconds / Duration.microsecondsPerSecond;
+    return _ReleaseSimulation(controller!.value, ordinary > 0 ? max(speed, 1 / ordinary) : speed);
+  }
+
+  /// The curve the sheet comes in on, reversed on the way out.
   Curve get transitionCurve;
 
+  /// How readily a swipe closes the sheet.
   SwipeDismissSensitivity get swipeDismissSensitivity;
 
   @override
@@ -233,7 +302,7 @@ mixin OnaBottomSheetRouteMixin<T> on ModalRoute<T> {
   ///
   /// ```dart
   /// OnaBottomSheetRoute<void>(
-  ///   builder: (context) => OnaBottomSheet(child: ...),
+  ///   builder: (context) => RawSheet(child: ...),
   ///   barrierBuilder: (route, onDismiss) {
   ///     final visibility =
   ///         (route as OnaBottomSheetRouteMixin<void>).sheetVisibility;
@@ -261,22 +330,32 @@ mixin OnaBottomSheetRouteMixin<T> on ModalRoute<T> {
     super.dispose();
   }
 
+  /// Builds the sheet the route shows.
   Widget buildSheet(BuildContext context);
 
+  /// Builds the viewport around the sheet.
   Widget buildViewport(BuildContext context, Widget child) {
     return OnaSheetViewport(child: child);
   }
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
-    return buildViewport(
-      context,
-      _SheetVisibilityObserver(
-        route: this,
-        child: _SheetDismissible(
-          enabled: swipeDismissible,
-          sensitivity: swipeDismissSensitivity,
-          child: buildSheet(context),
+    final MaterialLocalizations? words = Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
+    return Semantics(
+      // Names the sheet for screen readers, and lets their escape gesture close it when a tap outside would.
+      namesRoute: true,
+      explicitChildNodes: true,
+      label: semanticsLabel ?? words?.bottomSheetLabel,
+      onDismiss: barrierDismissible ? () => navigator?.maybePop() : null,
+      child: buildViewport(
+        context,
+        _SheetVisibilityObserver(
+          route: this,
+          child: _SheetDismissible(
+            enabled: swipeDismissible,
+            sensitivity: swipeDismissSensitivity,
+            child: buildSheet(context),
+          ),
         ),
       ),
     );
@@ -545,6 +624,8 @@ class _SheetDismissibleState extends State<_SheetDismissible> with SheetGestureP
     final didPop = invokePop && _canPopByGesture;
 
     if (didPop) {
+      // A fling keeps its speed on the way out.
+      if (effectiveVelocity < 0) _route._releaseSpeed = effectiveVelocity.abs();
       _route.navigator!.pop();
     } else if (!_transitionController.isCompleted) {
       // The route won't be popped, so animate the transition
@@ -649,7 +730,6 @@ class SwipeDismissSensitivity {
   /// the sheet will dismiss if 40% or less of the sheet is visible when
   /// the drag ends.
   ///
-  /// ignore: lines_longer_than_80_chars
   /// With `SwipeDismissSensitivity(dismissalOffset: SheetOffset.absolute(200))`,
   /// the sheet will dismiss if 200 pixels or less of the sheet is
   /// visible when the drag ends.
@@ -670,9 +750,7 @@ class SwipeDismissSensitivity {
 /// | Behavior                        | Implementation |
 /// |:------------------------------:|:--------------:|
 /// | Can pop; Gesture is enabled    | `SheetPopScope(canPop: true)` |
-// ignore: lines_longer_than_80_chars
 /// | Cannot pop; Gesture is enabled | `SheetPopScope(canPop: false, onPopInvokedWithResult: nonNullCallback)` |
-// ignore: lines_longer_than_80_chars
 /// | Cannot pop; Gesture is disabled| `SheetPopScope(canPop: false, onPopInvokedWithResult: null)` |
 ///
 /// Note that the gesture is always disabled if
@@ -686,7 +764,7 @@ class SwipeDismissSensitivity {
 ///   builder: (context) => SheetPopScope(
 ///     canPop: false,
 ///     onPopInvokedWithResult: (didPop, result) {...},
-///     child: OnaBottomSheet(child: Container()),
+///     child: RawSheet(child: Container()),
 ///   ),
 /// );
 /// ```
@@ -707,7 +785,7 @@ class SwipeDismissSensitivity {
 ///       onPopInvokedWithResult: canPopByGesture
 ///         ? (didPop, result) {...}
 ///         : null,
-///       child: OnaBottomSheet(child: Container()),
+///       child: RawSheet(child: Container()),
 ///     );
 ///   }
 /// }
@@ -948,4 +1026,21 @@ class _DefaultModalBarrierColorAnimation extends Animation<Color> {
 
     return Color.lerp(_transparentColor, color, opacity)!;
   }
+}
+
+/// Carries a released sheet off screen at a constant speed (in route-animation units per second).
+class _ReleaseSimulation extends Simulation {
+  _ReleaseSimulation(this._start, this._speed) : assert(_speed > 0);
+
+  final double _start;
+  final double _speed;
+
+  @override
+  double x(double time) => max(_start - _speed * time, 0);
+
+  @override
+  double dx(double time) => x(time) > 0 ? -_speed : 0;
+
+  @override
+  bool isDone(double time) => x(time) <= 0;
 }

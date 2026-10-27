@@ -8,7 +8,7 @@ void main() {
   group('Drag Configuration Test', () {
     Widget boilerplate({required SheetDragConfiguration dragConfiguration}) {
       return OnaSheetViewport(
-        child: OnaBottomSheet(
+        child: RawSheet(
           key: const Key('sheet'),
           initialOffset: const SheetOffset(1),
           detents: const SheetDetents(snaps: [SheetOffset.absolute(100), SheetOffset(1)]),
@@ -18,7 +18,7 @@ void main() {
       );
     }
 
-    testWidgets('OnaBottomSheet is draggable when dragConfiguration is explicitly provided', (tester) async {
+    testWidgets('RawSheet is draggable when dragConfiguration is explicitly provided', (tester) async {
       await tester.pumpWidget(boilerplate(dragConfiguration: const SheetDragConfiguration()));
       expect(tester.getRect(find.byId('sheet')).top, 300);
 
@@ -27,11 +27,11 @@ void main() {
       expect(
         tester.getRect(find.byId('sheet')).top,
         500,
-        reason: 'OnaBottomSheet should have snapped to the lower snap point',
+        reason: 'RawSheet should have snapped to the lower snap point',
       );
     });
 
-    testWidgets('OnaBottomSheet is not draggable when dragConfiguration is disabled', (tester) async {
+    testWidgets('RawSheet is not draggable when dragConfiguration is disabled', (tester) async {
       await tester.pumpWidget(boilerplate(dragConfiguration: SheetDragConfiguration.disabled));
       expect(tester.getRect(find.byId('sheet')).top, 300);
 
@@ -43,7 +43,7 @@ void main() {
         warnIfMissed: false,
       );
       await tester.pumpAndSettle();
-      expect(tester.getRect(find.byId('sheet')).top, 300, reason: 'OnaBottomSheet should not have moved');
+      expect(tester.getRect(find.byId('sheet')).top, 300, reason: 'RawSheet should not have moved');
     });
 
     testWidgets('Child widgets are still interactive when drag is disabled', (tester) async {
@@ -52,7 +52,7 @@ void main() {
         Directionality(
           textDirection: TextDirection.ltr,
           child: OnaSheetViewport(
-            child: OnaBottomSheet(
+            child: RawSheet(
               dragConfiguration: SheetDragConfiguration.disabled,
               child: SizedBox(
                 height: 300,
@@ -76,7 +76,7 @@ void main() {
       addTearDown(scrollController.dispose);
       await tester.pumpWidget(
         OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             dragConfiguration: SheetDragConfiguration.disabled,
             child: SizedBox(
               height: 300,
@@ -100,7 +100,7 @@ void main() {
   group('deviceKinds', () {
     Widget boilerplate({required SheetDragConfiguration dragConfiguration}) {
       return OnaSheetViewport(
-        child: OnaBottomSheet(
+        child: RawSheet(
           key: const Key('sheet'),
           initialOffset: const SheetOffset(1),
           detents: const SheetDetents(snaps: [SheetOffset.absolute(100), SheetOffset(1)]),
@@ -121,15 +121,11 @@ void main() {
 
       await tester.drag(find.byId('sheet'), const Offset(0, 150), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
-      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'OnaBottomSheet should have moved with mouse drag');
+      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'RawSheet should have moved with mouse drag');
 
       await tester.drag(find.byId('sheet'), const Offset(0, -150), kind: PointerDeviceKind.touch);
       await tester.pumpAndSettle();
-      expect(
-        tester.getRect(find.byId('sheet')).top,
-        500,
-        reason: 'OnaBottomSheet should not have moved with touch drag',
-      );
+      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'RawSheet should not have moved with touch drag');
     });
 
     testWidgets('Falls back to inherited ScrollBehavior.dragDevices if not specified', (tester) async {
@@ -143,15 +139,11 @@ void main() {
 
       await tester.drag(find.byId('sheet'), const Offset(0, 150), kind: PointerDeviceKind.mouse);
       await tester.pumpAndSettle();
-      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'OnaBottomSheet should have moved with mouse drag');
+      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'RawSheet should have moved with mouse drag');
 
       await tester.drag(find.byId('sheet'), const Offset(0, -150), kind: PointerDeviceKind.touch);
       await tester.pumpAndSettle();
-      expect(
-        tester.getRect(find.byId('sheet')).top,
-        500,
-        reason: 'OnaBottomSheet should not have moved with touch drag',
-      );
+      expect(tester.getRect(find.byId('sheet')).top, 500, reason: 'RawSheet should not have moved with touch drag');
     });
   });
 
@@ -159,7 +151,7 @@ void main() {
     testWidgets('detents is respected on first build with multiple snap points', (tester) async {
       await tester.pumpWidget(
         OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             key: const Key('sheet'),
             initialOffset: const SheetOffset(0.2),
             detents: const SheetDetents(snaps: [SheetOffset(0.5), SheetOffset(1)]),
@@ -170,14 +162,14 @@ void main() {
       expect(
         tester.getRect(find.byId('sheet')),
         const Rect.fromLTWH(0, 300, 800, 600),
-        reason: 'OnaBottomSheet should snap to nearest snap point (offset=0.5)',
+        reason: 'RawSheet should snap to nearest snap point (offset=0.5)',
       );
     });
 
     testWidgets('initialOffset within detents is preserved', (tester) async {
       await tester.pumpWidget(
         OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             key: const Key('sheet'),
             initialOffset: const SheetOffset(0.2),
             detents: const SheetDetents(snaps: [SheetOffset(0.2), SheetOffset(1)]),

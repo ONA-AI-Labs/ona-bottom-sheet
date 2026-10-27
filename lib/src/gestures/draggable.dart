@@ -11,9 +11,13 @@ import '../foundation/model_owner.dart';
 abstract class SheetDragConfiguration {
   /// Creates a [SheetDragConfiguration].
   ///
-  /// The [hitTestBehavior] defaults to [HitTestBehavior.opaque].
-  const factory SheetDragConfiguration({HitTestBehavior hitTestBehavior, Set<PointerDeviceKind>? deviceKinds}) =
-      _StaticSheetDragConfiguration;
+  /// The [hitTestBehavior] defaults to [HitTestBehavior.opaque] and the [dragStartBehavior] to
+  /// [DragStartBehavior.down].
+  const factory SheetDragConfiguration({
+    HitTestBehavior hitTestBehavior,
+    Set<PointerDeviceKind>? deviceKinds,
+    DragStartBehavior dragStartBehavior,
+  }) = _StaticSheetDragConfiguration;
 
   /// A [SheetDragConfiguration] that disables dragging.
   static const SheetDragConfiguration disabled = _SheetDragConfigurationDisabled.instance;
@@ -29,11 +33,24 @@ abstract class SheetDragConfiguration {
   /// When `null`, the sheet uses the drag devices from the nearest
   /// ancestor [ScrollConfiguration].
   Set<PointerDeviceKind>? get deviceKinds;
+
+  /// Where a drag starts from once the finger has moved past the touch slop.
+  ///
+  /// [DragStartBehavior.down], the default, starts it where the finger went down, so the sheet catches up and then
+  /// follows the finger exactly, as native sheets do. [DragStartBehavior.start] starts it where the slop was
+  /// passed, which leaves the sheet trailing the finger by the slop for the whole drag.
+  ///
+  /// The slop itself comes from the ambient [MediaQueryData.gestureSettings].
+  DragStartBehavior get dragStartBehavior;
 }
 
 @immutable
 class _StaticSheetDragConfiguration implements SheetDragConfiguration {
-  const _StaticSheetDragConfiguration({this.hitTestBehavior = HitTestBehavior.opaque, this.deviceKinds});
+  const _StaticSheetDragConfiguration({
+    this.hitTestBehavior = HitTestBehavior.opaque,
+    this.deviceKinds,
+    this.dragStartBehavior = DragStartBehavior.down,
+  });
 
   @override
   final HitTestBehavior hitTestBehavior;
@@ -42,16 +59,20 @@ class _StaticSheetDragConfiguration implements SheetDragConfiguration {
   final Set<PointerDeviceKind>? deviceKinds;
 
   @override
+  final DragStartBehavior dragStartBehavior;
+
+  @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         other is _StaticSheetDragConfiguration &&
             runtimeType == other.runtimeType &&
             hitTestBehavior == other.hitTestBehavior &&
+            dragStartBehavior == other.dragStartBehavior &&
             setEquals(deviceKinds, other.deviceKinds);
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, hitTestBehavior, deviceKinds);
+  int get hashCode => Object.hash(runtimeType, hitTestBehavior, deviceKinds, dragStartBehavior);
 }
 
 @immutable
@@ -65,6 +86,9 @@ class _SheetDragConfigurationDisabled implements SheetDragConfiguration {
 
   @override
   Set<PointerDeviceKind>? get deviceKinds => null;
+
+  @override
+  DragStartBehavior get dragStartBehavior => DragStartBehavior.down;
 
   @override
   bool operator ==(Object other) {
@@ -99,22 +123,26 @@ class _SheetDraggableState extends State<SheetDraggable> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _model = SheetModelOwner.of(context);
-    _gestureRecognizer?.supportedDevices = _effectiveDeviceKinds;
-    _gestureRecognizer ??=
-        VerticalDragGestureRecognizer(
-            debugOwner: kDebugMode ? runtimeType : null,
-            supportedDevices: _effectiveDeviceKinds,
-          )
-          ..onStart = _handleDragStart
-          ..onUpdate = _handleDragUpdate
-          ..onEnd = _handleDragEnd
-          ..onCancel = _handleDragCancel;
+    _gestureRecognizer ??= VerticalDragGestureRecognizer(debugOwner: kDebugMode ? runtimeType : null)
+      ..onStart = _handleDragStart
+      ..onUpdate = _handleDragUpdate
+      ..onEnd = _handleDragEnd
+      ..onCancel = _handleDragCancel;
+    _configureRecognizer();
   }
 
   @override
   void didUpdateWidget(SheetDraggable oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _gestureRecognizer?.supportedDevices = _effectiveDeviceKinds;
+    _configureRecognizer();
+  }
+
+  // The slop comes from MediaQuery, as for Flutter's own scroll views, so one setting governs both.
+  void _configureRecognizer() {
+    _gestureRecognizer!
+      ..supportedDevices = _effectiveDeviceKinds
+      ..dragStartBehavior = widget.configuration.dragStartBehavior
+      ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context);
   }
 
   @override

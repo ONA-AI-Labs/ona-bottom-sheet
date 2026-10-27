@@ -3,7 +3,6 @@ import 'package:meta/meta.dart';
 
 import 'drag.dart';
 
-// TODO: Expose this as a public API.
 @internal
 class SheetGestureProxy extends StatefulWidget {
   const SheetGestureProxy({super.key, required this.proxy, required this.child});
@@ -54,7 +53,6 @@ class _SheetGestureProxyScope extends InheritedWidget {
   bool updateShouldNotify(_SheetGestureProxyScope oldWidget) => oldWidget.proxy != proxy;
 }
 
-// TODO: Expose this as a public API.
 @internal
 mixin SheetGestureProxyMixin {
   SheetGestureProxyMixin? _parent;

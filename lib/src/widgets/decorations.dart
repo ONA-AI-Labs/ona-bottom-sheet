@@ -3,11 +3,21 @@ import 'package:flutter/material.dart';
 import '../foundation/model.dart';
 import 'viewport.dart';
 
-enum SheetSize { fit, stretch }
+/// How tall a [SizedSheetDecoration] is drawn.
+enum SheetSize {
+  /// As tall as the content.
+  fit,
 
+  /// As tall as the sheet's position, so the surface stretches when the sheet is pulled past its content.
+  stretch,
+}
+
+/// A [SheetDecoration] whose height follows a [SheetSize].
 abstract class SizedSheetDecoration implements SheetDecoration {
+  /// Creates a decoration of the given [size].
   const SizedSheetDecoration({required this.size});
 
+  /// Whether the decoration fits the content or stretches to the sheet's position.
   final SheetSize size;
 
   @override
@@ -109,9 +119,12 @@ class BoxSheetDecoration extends SizedSheetDecoration {
   }
 }
 
+/// A [SheetDecoration] drawn by a function, for surfaces the other decorations do not cover.
 class SheetDecorationBuilder extends SizedSheetDecoration {
+  /// Creates a decoration that [builder] draws.
   const SheetDecorationBuilder({required super.size, required this.builder});
 
+  /// Wraps the sheet's child in the decoration.
   final Widget Function(BuildContext, Widget) builder;
 
   @override
@@ -119,15 +132,3 @@ class SheetDecorationBuilder extends SizedSheetDecoration {
     return builder(context, child);
   }
 }
-
-// TODO: Implement this
-/*
-class StretchingSheetDecoration extends BaseSheetDecoration {
-  const StretchingSheetDecoration() : super(size: SheetSize.stretch);
-
-  @override
-  Widget build(BuildContext context, Widget child) {
-    return child;
-  }
-}
-*/

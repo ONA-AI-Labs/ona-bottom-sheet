@@ -5,7 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import '../foundation/model.dart';
 import '../foundation/model_owner.dart';
-import 'bottom_sheet.dart';
+import 'raw_sheet.dart';
 import 'viewport.dart';
 
 /// Defines how the [OnaSheetScaffold.footer] of [OnaSheetScaffold]
@@ -38,7 +38,8 @@ sealed class FooterVisibility {
   /// {@macro AlwaysVisibleFooterVisibility}
   ///
   /// {@macro SheetContentScaffoldFooterVisibility.ignoreBottomInset}
-  const factory FooterVisibility.always({bool ignoreBottomInset}) = AlwaysVisibleFooterVisibility;
+  /// With [scrimColor] set, the footer stands on a fade of that colour while content runs on below it.
+  const factory FooterVisibility.always({bool ignoreBottomInset, Color? scrimColor}) = AlwaysVisibleFooterVisibility;
 
   /// {@macro ControlledFooterVisibility}
   ///
@@ -74,6 +75,7 @@ sealed class FooterVisibility {
 /// The footer is displayed naturally, based on the sheet's offset.
 /// {@endtemplate}
 class NaturalFooterVisibility extends FooterVisibility {
+  /// Creates a visibility that leaves the footer where the layout puts it.
   const NaturalFooterVisibility({super.ignoreBottomInset});
 }
 
@@ -84,7 +86,12 @@ class NaturalFooterVisibility extends FooterVisibility {
 /// keyboard is open and [ignoreBottomInset] is `false`.
 /// {@endtemplate}
 class AlwaysVisibleFooterVisibility extends FooterVisibility {
-  const AlwaysVisibleFooterVisibility({super.ignoreBottomInset});
+  /// Creates a visibility that keeps the footer in view.
+  const AlwaysVisibleFooterVisibility({super.ignoreBottomInset, this.scrimColor});
+
+  /// When set, the footer stands on a fade of this colour (usually the sheet's own) while the body runs on below
+  /// it, as it does when a long sheet rests partway up; with all the content in view, nothing is drawn.
+  final Color? scrimColor;
 }
 
 /// {@template ControlledFooterVisibility}
@@ -98,8 +105,10 @@ class AlwaysVisibleFooterVisibility extends FooterVisibility {
 /// otherwise an error will be thrown.
 /// {@endtemplate}
 class ControlledFooterVisibility extends FooterVisibility {
+  /// Creates a visibility that [animation] drives.
   const ControlledFooterVisibility({super.ignoreBottomInset, required this.animation});
 
+  /// How visible the footer is, 0 (hidden) to 1 (shown).
   final Animation<double> animation;
 }
 
@@ -116,6 +125,7 @@ class ControlledFooterVisibility extends FooterVisibility {
 /// otherwise an error will be thrown.
 /// {@endtemplate}
 class ConditionalFooterVisibility extends FooterVisibility {
+  /// Creates a visibility that shows the footer while [isVisible] holds.
   const ConditionalFooterVisibility({
     super.ignoreBottomInset,
     required this.isVisible,
@@ -124,13 +134,20 @@ class ConditionalFooterVisibility extends FooterVisibility {
     this.curve = Curves.easeInOut,
   });
 
+  /// Whether the footer should show for the sheet's current metrics.
   final bool Function(SheetMetrics) isVisible;
+
+  /// Whether the footer shows before the sheet is laid out.
   final bool initialIsVisible;
+
+  /// How long the footer takes to show or hide.
   final Duration duration;
+
+  /// The curve the footer shows and hides on.
   final Curve curve;
 }
 
-/// The basic layout of the content in a [OnaBottomSheet].
+/// The basic layout of the content in a [RawSheet].
 ///
 /// Similar to [Scaffold], this widget provides the slots for the [header],
 /// [footer], and [body]. Unlike [Scaffold], however, this widget
@@ -237,8 +254,10 @@ class OnaSheetScaffold extends StatelessWidget {
           // No additional widget is needed.
           break;
 
-        case AlwaysVisibleFooterVisibility():
-          effectiveFooter = _AlwaysVisibleFooterVisibility(child: effectiveFooter);
+        case AlwaysVisibleFooterVisibility(:final scrimColor):
+          effectiveFooter = _AlwaysVisibleFooterVisibility(
+            child: scrimColor == null ? effectiveFooter : _FooterScrim(color: scrimColor, child: effectiveFooter),
+          );
 
         case ControlledFooterVisibility(:final animation):
           assert(
@@ -426,9 +445,7 @@ class _RenderScaffoldLayout extends RenderBox with SlottedContainerRenderObjectM
     assert(() {
       if (!RenderObject.debugCheckingIntrinsics) {
         throw FlutterError(
-          // ignore: lines_longer_than_80_chars
           'OnaSheetScaffold does not support returning intrinsic dimensions.\n'
-          // ignore: lines_longer_than_80_chars
           'Calculating the dry layout would require running the layout callback '
           'speculatively, which might mutate the live render object tree.',
         );
@@ -444,7 +461,6 @@ class _RenderScaffoldLayout extends RenderBox with SlottedContainerRenderObjectM
     assert(
       debugCannotComputeDryLayout(
         reason:
-            // ignore: lines_longer_than_80_chars
             'Calculating the dry layout would require running the layout callback '
             'speculatively, which might mutate the live render object tree.',
       ),
@@ -457,7 +473,6 @@ class _RenderScaffoldLayout extends RenderBox with SlottedContainerRenderObjectM
     assert(
       debugCannotComputeDryLayout(
         reason:
-            // ignore: lines_longer_than_80_chars
             'Calculating the dry baseline would require running the layout callback speculatively, '
             'which might mutate the live render object tree.',
       ),
@@ -847,5 +862,75 @@ class _ConditionalFooterVisibilityState extends State<_ConditionalFooterVisibili
   @override
   Widget build(BuildContext context) {
     return _ControlledFooterVisibility(visibility: _curveAnimation, child: widget.child);
+  }
+}
+
+/// Paints a fade of [color] behind the footer while the sheet's content runs on below the viewport (under the
+/// footer), reaching full strength over the first 24 pixels of overlap. Paint only: the sheet moving repaints this
+/// box and rebuilds nothing.
+class _FooterScrim extends SingleChildRenderObjectWidget {
+  const _FooterScrim({required this.color, required super.child});
+
+  final Color color;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderFooterScrim(model: SheetModelOwner.of(context)!, color: color);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _RenderFooterScrim)
+      ..model = SheetModelOwner.of(context)!
+      ..color = color;
+  }
+}
+
+class _RenderFooterScrim extends RenderProxyBox {
+  _RenderFooterScrim({required SheetModel model, required Color color}) : _model = model, _color = color {
+    _model.addListener(markNeedsPaint);
+  }
+
+  SheetModel _model;
+  set model(SheetModel value) {
+    if (identical(value, _model)) return;
+    _model.removeListener(markNeedsPaint);
+    _model = value..addListener(markNeedsPaint);
+    markNeedsPaint();
+  }
+
+  Color _color;
+  set color(Color value) {
+    if (value == _color) return;
+    _color = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_model.hasMetrics) {
+      final double under = _model.contentRect.bottom - (_model.viewportSize.height - _model.contentBaseline);
+      final double strength = (under / 24).clamp(0.0, 1.0);
+      if (strength > 0) {
+        final Rect rect = offset & size;
+        final Color solid = _color.withValues(alpha: _color.a * strength);
+        context.canvas.drawRect(
+          rect,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const <double>[0, 0.35],
+              colors: <Color>[solid.withValues(alpha: 0), solid],
+            ).createShader(rect),
+        );
+      }
+    }
+    super.paint(context, offset);
+  }
+
+  @override
+  void dispose() {
+    _model.removeListener(markNeedsPaint);
+    super.dispose();
   }
 }

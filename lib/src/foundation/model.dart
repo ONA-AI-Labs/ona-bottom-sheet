@@ -114,8 +114,10 @@ class AbsoluteSheetOffset implements SheetOffset {
 
 /// A [SheetOffset] that is defined by a factor of the viewport size.
 class ProportionalToViewportSheetOffset implements SheetOffset {
+  /// Creates an offset at [factor] of the viewport's height.
   const ProportionalToViewportSheetOffset(this.factor);
 
+  /// The fraction of the viewport's height, 0 to 1.
   final double factor;
 
   @override
@@ -299,8 +301,7 @@ abstract class SheetModel<C extends SheetModelConfig> extends SheetModelView wit
   SheetLayout? _layout;
 
   void applyNewLayout(SheetLayout layout) {
-    // ignore: lines_longer_than_80_chars
-    // TODO: Make the layout class immutable so that we can compare the old and new layouts by the equality operator.
+    // Compared field by field: the layout classes are mutable, so they have no value equality.
     if (layout.viewportSize == _layout?.viewportSize &&
         layout.viewportPadding == _layout?.viewportPadding &&
         layout.contentSize == _layout?.contentSize &&
@@ -368,8 +369,7 @@ abstract class SheetModel<C extends SheetModelConfig> extends SheetModelView wit
 
     final result = activity.dryApplyNewLayout(layout);
     assert(
-      // ignore: lines_longer_than_80_chars
-      // TODO: Make the layout class immutable so that we can compare the old and new layouts by the equality operator.
+      // Compared field by field: the layout classes are mutable, so they have no value equality.
       oldLayout?.viewportSize == _layout?.viewportSize &&
           oldLayout?.viewportPadding == _layout?.viewportPadding &&
           oldLayout?.contentSize == _layout?.contentSize &&
@@ -499,7 +499,7 @@ abstract class SheetModel<C extends SheetModelConfig> extends SheetModelView wit
   }
 }
 
-// TODO: Make this an immutable data class.
+/// The geometry a sheet is laid out in: the viewport, its padding, and the content's size and margin.
 abstract interface class ViewportLayout {
   /// {@template ViewportLayout.viewportSize}
   /// The size of the *viewport*, which is the rectangle
@@ -529,6 +529,7 @@ abstract interface class ViewportLayout {
   double get contentBaseline;
 }
 
+/// A [ViewportLayout] with the sheet's own size.
 abstract interface class SheetLayout extends ViewportLayout {
   /// The size of the sheet.
   Size get size;
@@ -547,7 +548,6 @@ mixin SheetMetrics implements SheetLayout {
 
   /// The [FlutterView.devicePixelRatio] of the view that the sheet
   /// associated with this metrics is drawn into.
-  // TODO: Remove this field.
   double get devicePixelRatio;
 
   /// The rectangle that bounds the sheet within the viewport.

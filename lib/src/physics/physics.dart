@@ -23,10 +23,21 @@ const _kDefaultSheetSpring = SpringDescription(
   damping: 15.5563491861, // 1.1 * 2.0 * sqrt(0.5 * 100.0)
 );
 
-/// The default [SheetPhysics] used by sheet widgets.
+/// The spring an Ona sheet settles on: non-bouncy, with a 0.35 s response.
+///
+/// Mass 1, stiffness (2π / 0.35)² and damping 4π / 0.35, which makes it critically damped (damping ratio 1). It
+/// covers 87% of the way to a stop in 200 ms, against 73% for [RawSheet]'s neutral, overdamped default, and is what
+/// [OnaSheetMotion.settle] defaults to.
+const SpringDescription kOnaSheetSpring = SpringDescription(mass: 1, stiffness: 322.3, damping: 35.9);
+
+/// The default [SheetPhysics] of a [RawSheet].
 const kDefaultSheetPhysics = BouncingSheetPhysics();
 
+/// How a sheet responds to drags past its bounds, and how it settles when let go.
+///
+/// [ClampingSheetPhysics] keeps it within its stops; [BouncingSheetPhysics] lets it stretch and spring back.
 abstract class SheetPhysics {
+  /// Allows subclasses to be const.
   const SheetPhysics();
 
   /// The minimum amount of pixel distance drags must move by to start motion
@@ -38,17 +49,19 @@ abstract class SheetPhysics {
     _ => null,
   };
 
+  /// The part of a drag of [delta] that these physics would not apply to the sheet.
   double computeOverflow(double delta, SheetMetrics metrics);
 
-  // TODO: Change to return a tuple of (physicsAppliedOffset, overflow)
-  // to avoid recomputation of the overflow.
+  /// How far the sheet actually moves for a drag of [delta].
   double applyPhysicsToOffset(double delta, SheetMetrics metrics);
 
+  /// The motion after the finger lifts at [velocity]: towards the stop [detents] picks, or null to stay put.
   Simulation? createBallisticSimulation(double velocity, SheetMetrics metrics, SheetDetents detents);
 }
 
 /// A mixin that provides default implementations for [SheetPhysics] methods.
 mixin SheetPhysicsMixin on SheetPhysics {
+  /// The spring the sheet settles on.
   SpringDescription get spring => _kDefaultSheetSpring;
 
   @override
@@ -65,7 +78,6 @@ mixin SheetPhysicsMixin on SheetPhysics {
 
   @override
   double applyPhysicsToOffset(double delta, SheetMetrics metrics) {
-    // TODO: Use computeOverflow() to calculate the overflowed offset.
     if (delta > 0 && metrics.offset < metrics.maxOffset) {
       // Prevent the offset from going beyond the maximum value.
       return math.min(metrics.maxOffset, metrics.offset + delta) - metrics.offset;
@@ -101,7 +113,11 @@ mixin SheetPhysicsMixin on SheetPhysics {
   }
 }
 
+/// A [SheetPhysics] that keeps the sheet within [SheetMetrics.minOffset] and
+/// [SheetMetrics.maxOffset]: once it reaches its highest stop, a drag further up
+/// does not move it.
 class ClampingSheetPhysics extends SheetPhysics with SheetPhysicsMixin {
+  /// Creates physics that never let the sheet past its bounds.
   const ClampingSheetPhysics({this.spring = _kDefaultSheetSpring});
 
   @override
@@ -114,7 +130,9 @@ class ClampingSheetPhysics extends SheetPhysics with SheetPhysicsMixin {
 /// How far it goes is set by [bounceExtent] and how hard it pulls back by
 /// [resistance]; where it comes to rest is chosen by the sheet's [SheetDetents].
 class BouncingSheetPhysics extends SheetPhysics with SheetPhysicsMixin {
-  const BouncingSheetPhysics({this.bounceExtent = 120, this.resistance = 6}) : assert(bounceExtent >= 0);
+  /// Creates physics that let the sheet stretch past its bounds and spring back.
+  const BouncingSheetPhysics({this.bounceExtent = 120, this.resistance = 6, this.spring = _kDefaultSheetSpring})
+    : assert(bounceExtent >= 0);
 
   /// Factor that controls how easy/hard it is to overdrag the sheet.
   ///
@@ -132,7 +150,7 @@ class BouncingSheetPhysics extends SheetPhysics with SheetPhysicsMixin {
   final double bounceExtent;
 
   @override
-  SpringDescription get spring => _kDefaultSheetSpring;
+  final SpringDescription spring;
 
   @override
   double computeOverflow(double delta, SheetMetrics metrics) {

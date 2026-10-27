@@ -6,7 +6,7 @@ import 'model.dart';
 
 /// A [Notification] that is dispatched when the sheet position changes.
 ///
-/// OnaBottomSheet widgets notify their ancestors about changes to their position.
+/// RawSheet widgets notify their ancestors about changes to their position.
 /// There are 6 types of notifications:
 /// - [SheetOverflowNotification], which is dispatched when the user tries
 ///   to drag the sheet beyond its draggable bounds but the sheet has not
@@ -49,11 +49,13 @@ sealed class SheetNotification extends Notification {
 /// A [SheetNotification] that is dispatched when the sheet position
 /// is updated by other than user interaction such as animation.
 class SheetUpdateNotification extends SheetNotification {
+  /// Creates a notification that the sheet's metrics changed.
   const SheetUpdateNotification({required super.metrics});
 }
 
 /// A [SheetNotification] that is dispatched when the sheet is dragged.
 class SheetDragUpdateNotification extends SheetNotification {
+  /// Creates a notification of a drag update.
   const SheetDragUpdateNotification({required super.metrics, required this.dragDetails});
 
   /// The details of a drag that caused this notification.
@@ -112,6 +114,7 @@ class SheetDragCancelNotification extends SheetNotification {
 /// to drag the sheet beyond its draggable bounds but the sheet has not
 /// changed its position because its [SheetPhysics] does not allow it to be.
 class SheetOverflowNotification extends SheetNotification {
+  /// Creates a notification that part of a drag was not applied.
   const SheetOverflowNotification({required super.metrics, required this.overflow});
 
   /// The amount of overflow beyond the draggable bounds.

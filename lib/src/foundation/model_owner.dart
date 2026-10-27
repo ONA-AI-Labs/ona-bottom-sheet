@@ -7,6 +7,7 @@ import '../widgets/viewport.dart';
 import 'controller.dart';
 import 'model.dart';
 
+/// Creates the model behind a sheet from its context and configuration.
 typedef SheetModelFactory<C extends SheetModelConfig> = SheetModel<C> Function(SheetContext context, C config);
 
 /// A widget that creates a [SheetModel], manages its lifecycle,

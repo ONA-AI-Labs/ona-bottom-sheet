@@ -11,7 +11,7 @@ import '../foundation/notification.dart';
 /// ```dart
 /// return SheetKeyboardDismissible(
 ///   dismissBehavior: const SheetKeyboardDismissBehavior.onDragDown(),
-///   child: OnaBottomSheet(
+///   child: RawSheet(
 ///     child: Container(
 ///       color: Colors.white,
 ///       width: double.infinity,

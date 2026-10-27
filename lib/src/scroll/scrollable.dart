@@ -130,7 +130,7 @@ class _SheetScrollConfigurationDisabled implements SheetScrollConfiguration {
 mixin ScrollAwareSheetModelMixin<C extends SheetModelConfig> on SheetModel<C> implements _SheetScrollPositionDelegate {
   SheetScrollConfiguration get scrollConfiguration;
 
-  // TODO: Stop scroll animations when a non-scrollable activity starts.
+  // A scroll animation already running carries on when a non-scroll activity (a drag on the header) takes over.
   final _scrollPositions = HashSet<SheetScrollPosition>();
 
   /// A [ScrollPosition] that is currently driving the sheet position.
@@ -445,7 +445,7 @@ class DragScrollDrivenSheetActivity extends DragSheetActivity<ScrollAwareSheetMo
          if (scrollPosition.axisDirection != AxisDirection.down && scrollPosition.axisDirection != AxisDirection.up) {
            throw FlutterError(
              'The axis direction of the scroll position associated with a '
-             'OnaBottomSheet must be either $AxisDirection.down '
+             'RawSheet must be either $AxisDirection.down '
              'or $AxisDirection.up, but the provided scroll position has an '
              'axis direction of ${scrollPosition.axisDirection}.',
            );
@@ -815,7 +815,6 @@ class SheetScrollController extends ScrollController {
 /// The associated scroll positions delegate their behavior of
 /// `goIdle`, `hold`, `drag`, and `goBallistic` to this object.
 abstract class _SheetScrollPositionDelegate {
-  // TODO: Remove the following 3 methods.
   bool get hasPrimaryScrollPosition;
 
   void addScrollPosition(SheetScrollPosition position);
@@ -824,7 +823,6 @@ abstract class _SheetScrollPositionDelegate {
 
   void replaceScrollPosition({required SheetScrollPosition oldPosition, required SheetScrollPosition newPosition});
 
-  // TODO: Change the signature to `(SheetScrollPosition) -> void`.
   void goIdleWithScrollPosition();
 
   ScrollHoldController holdWithScrollPosition({
@@ -845,6 +843,7 @@ abstract class _SheetScrollPositionDelegate {
 /// A [ScrollPosition] for a scrollable content in a sheet.
 @visibleForTesting
 class SheetScrollPosition extends ScrollPositionWithSingleContext {
+  /// Creates a scroll position that shares its drags with the sheet around it.
   SheetScrollPosition({
     required ScrollPhysics physics,
     required super.context,

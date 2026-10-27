@@ -1,15 +1,27 @@
 import 'dart:math';
 
 import 'package:flutter/gestures.dart';
+import 'package:meta/meta.dart';
 
 import '../foundation/model.dart';
 
+/// The stops a sheet can rest at, and how it picks one when a drag ends.
+///
+/// A sheet moves freely between its lowest and highest stop ([getBoundaries]); when the finger lifts, it settles
+/// on the stop [getSnapOffset] picks.
 abstract interface class SheetDetents {
-  const factory SheetDetents({required List<SheetOffset> snaps, double minFlingSpeed}) = MultiSheetDetents;
+  /// Rests at any of [snaps]; see [MultiSheetDetents].
+  const factory SheetDetents({required List<SheetOffset> snaps, double minFlingSpeed, double? flickProjection}) =
+      MultiSheetDetents;
 
+  /// Rests at [snap] alone.
   const factory SheetDetents.single({required SheetOffset snap}) = SingleSheetDetents;
 
+  /// Rests wherever it is let go, between [minOffset] and [maxOffset].
   const factory SheetDetents.stepless({SheetOffset minOffset, SheetOffset maxOffset}) = SteplessSheetDetents;
+
+  /// Ona's stops: whole content when it fits, else half and full; see [AdaptiveSheetDetents].
+  const factory SheetDetents.adaptive({double half, double flickProjection}) = AdaptiveSheetDetents;
 
   /// Returns an position to which a sheet should eventually settle
   /// based on the current [layout], [offset] and [velocity] of the sheet.
@@ -19,9 +31,12 @@ abstract interface class SheetDetents {
   (SheetOffset, SheetOffset) getBoundaries(ViewportLayout layout);
 }
 
+/// A single stop.
 class SingleSheetDetents implements SheetDetents {
+  /// Creates detents with the one stop [snap].
   const SingleSheetDetents({required this.snap});
 
+  /// The stop.
   final SheetOffset snap;
 
   @override
@@ -35,10 +50,15 @@ class SingleSheetDetents implements SheetDetents {
   }
 }
 
+/// No fixed stops: the sheet rests wherever it is let go, within a range.
 class SteplessSheetDetents implements SheetDetents {
+  /// Creates stepless detents between [minOffset] and [maxOffset].
   const SteplessSheetDetents({this.minOffset = const SheetOffset(0), this.maxOffset = const SheetOffset(1)});
 
+  /// The lowest the sheet rests.
   final SheetOffset minOffset;
+
+  /// The highest the sheet rests.
   final SheetOffset maxOffset;
 
   @override
@@ -60,14 +80,28 @@ class SteplessSheetDetents implements SheetDetents {
   }
 }
 
+/// A set of stops.
+///
+/// When the finger lifts, the sheet goes to the stop nearest where it is, or, for a release faster than
+/// [minFlingSpeed], to the next stop in the direction of travel. With [flickProjection] set, it instead goes to the
+/// stop nearest where the release would carry it in that many seconds (Apple's way: a slow release settles back, a
+/// flick carries on), never further than the next stop.
 class MultiSheetDetents implements SheetDetents {
-  const MultiSheetDetents({required this.snaps, this.minFlingSpeed = kMinFlingVelocity});
+  /// Creates detents from [snaps], in any order.
+  const MultiSheetDetents({required this.snaps, this.minFlingSpeed = kMinFlingVelocity, this.flickProjection})
+    : assert(flickProjection == null || flickProjection >= 0);
 
+  /// The stops.
   final List<SheetOffset> snaps;
 
   /// The lowest speed (in logical pixels per second)
   /// at which a gesture is considered to be a fling.
+  ///
+  /// Not used when [flickProjection] is set.
   final double minFlingSpeed;
+
+  /// When set, how far ahead in seconds the release's speed is projected to choose the stop.
+  final double? flickProjection;
 
   @override
   SheetOffset getSnapOffset(ViewportLayout layout, double offset, double velocity) {
@@ -76,6 +110,13 @@ class MultiSheetDetents implements SheetDetents {
       return result.min;
     } else if (offset > result.max.resolve(layout)) {
       return result.max;
+    } else if (flickProjection case final double projection) {
+      final projected = offset + velocity * projection;
+      final target = _scanSnapOffsets(layout, projected).nearest;
+      // Never past the next stop in the direction of travel.
+      if (velocity > 0 && target.resolve(layout) > result.rightmost.resolve(layout)) return result.rightmost;
+      if (velocity < 0 && target.resolve(layout) < result.leftmost.resolve(layout)) return result.leftmost;
+      return target;
     } else if (velocity.abs() < minFlingSpeed) {
       return result.nearest;
     } else if (velocity < 0) {
@@ -206,4 +247,68 @@ class MultiSheetDetents implements SheetDetents {
       rightmost: sortedSnaps[min(nearestIndex + 1, sortedSnaps.length - 1)],
     );
   }
+}
+
+/// Ona's stops, after Apple's medium and large detents.
+///
+/// Content that fits on the screen rests whole, at its own height, alone. Longer content rests at [half] of the
+/// screen or at full, its whole height up to the top of the viewport. While the keyboard is up (the sheet's bottom
+/// margin is non-zero), the sheet rests at full alone, so a focused field is never hidden. A release picks its stop
+/// by [flickProjection], as [MultiSheetDetents.flickProjection] does.
+class AdaptiveSheetDetents implements SheetDetents {
+  /// Creates Ona's adaptive stops.
+  const AdaptiveSheetDetents({this.half = 0.5, this.flickProjection = 0.499})
+    : assert(half > 0 && half < 1),
+      assert(flickProjection >= 0);
+
+  /// The lower stop of long content, as a fraction of the viewport's height.
+  final double half;
+
+  /// How far ahead in seconds a release's speed is projected to choose the stop.
+  final double flickProjection;
+
+  /// The stop the sheet opens at: [half] for long content, else its full height.
+  SheetOffset get rest => _AdaptiveRest(half);
+
+  @override
+  (SheetOffset, SheetOffset) getBoundaries(ViewportLayout layout) => (rest, const SheetOffset(1));
+
+  @override
+  SheetOffset getSnapOffset(ViewportLayout layout, double offset, double velocity) {
+    final projected = offset + velocity * flickProjection;
+    final low = rest.resolve(layout);
+    final high = const SheetOffset(1).resolve(layout);
+    return (projected - low).abs() <= (projected - high).abs() ? rest : const SheetOffset(1);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AdaptiveSheetDetents && other.half == half && other.flickProjection == flickProjection;
+
+  @override
+  int get hashCode => Object.hash(half, flickProjection);
+}
+
+/// The lower stop of [AdaptiveSheetDetents]: [half] of the viewport for content longer than it, else the content's
+/// full height (and full height while the keyboard is up).
+@immutable
+class _AdaptiveRest implements SheetOffset {
+  const _AdaptiveRest(this.half);
+
+  final double half;
+
+  @override
+  double resolve(ViewportLayout layout) {
+    final room = layout.viewportSize.height - layout.viewportPadding.vertical - layout.contentMargin.vertical;
+    final fits = layout.contentSize.height < room - 1;
+    return fits || layout.contentMargin.bottom > 0
+        ? const SheetOffset(1).resolve(layout)
+        : layout.viewportSize.height * half;
+  }
+
+  @override
+  bool operator ==(Object other) => other is _AdaptiveRest && other.half == half;
+
+  @override
+  int get hashCode => half.hashCode;
 }

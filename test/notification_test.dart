@@ -20,7 +20,7 @@ void main() {
           return false;
         },
         child: OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             detents: const SheetDetents.stepless(minOffset: SheetOffset(0)),
             // Disable the snapping effect
             physics: const ClampingSheetPhysics(),
@@ -97,7 +97,7 @@ void main() {
     );
   });
 
-  testWidgets('OnaBottomSheet animation should dispatch metrics update notifications', (tester) async {
+  testWidgets('RawSheet animation should dispatch metrics update notifications', (tester) async {
     final reportedNotifications = <SheetNotification>[];
     final controller = OnaSheetController();
 
@@ -108,7 +108,7 @@ void main() {
           return false;
         },
         child: OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             controller: controller,
             detents: const SheetDetents.stepless(minOffset: SheetOffset(0)),
             // Disable the snapping effect
@@ -171,7 +171,7 @@ void main() {
           return false;
         },
         child: OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             // Make sure the sheet can't be dragged
             detents: const SheetDetents.single(snap: SheetOffset(1)),
             // Disable the snapping effect
@@ -243,7 +243,7 @@ void main() {
             reportedNotifications.add(notification);
             return false;
           },
-          child: OnaBottomSheet(
+          child: RawSheet(
             minPosition: const SheetOffset(0),
             // Disable the snapping effect
             physics: const ClampingSheetPhysics(),

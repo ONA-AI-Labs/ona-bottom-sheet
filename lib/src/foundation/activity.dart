@@ -408,27 +408,6 @@ class IdleSheetActivity<T extends SheetModel> extends SheetActivity<T> {
   final SheetOffset targetOffset;
 
   @override
-  // ignore: unnecessary_overrides
-  void init(T owner) {
-    super.init(owner);
-    // ignore: lines_longer_than_80_chars
-    // TODO: Enable this assertion once the floating point precision issue is resolved.
-    // assert(() {
-    //   final resolvedTargetOffset = targetOffset.resolve(owner);
-    //   if (!FloatComp.distance(
-    //     owner.devicePixelRatio,
-    //   ).isApprox(owner.offset, resolvedTargetOffset)) {
-    //     throw AssertionError(
-    //       'The sheet should already be at the target offset '
-    //       'when starting an $runtimeType. Expected offset is '
-    //       '$resolvedTargetOffset, but the actual offset is ${owner.offset}.',
-    //     );
-    //   }
-    //   return true;
-    // }());
-  }
-
-  @override
   double dryApplyNewLayout(ViewportLayout layout) {
     return targetOffset.resolve(layout);
   }

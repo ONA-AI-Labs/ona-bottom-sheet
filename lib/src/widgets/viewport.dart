@@ -38,7 +38,7 @@ class SheetLayoutSpec {
     viewportPadding.left,
     0,
     viewportSize.width - viewportPadding.horizontal,
-    // TODO: Reduce the height by the viewportPadding.vertical
+    // Spans the vertical padding on purpose, so a stretching sheet can be drawn into it.
     viewportSize.height,
   );
 
@@ -68,6 +68,7 @@ class SheetLayoutSpec {
   int get hashCode => Object.hash(viewportSize, viewportPadding, contentMargin);
 }
 
+/// Notifies when the sheet's layout changes.
 typedef SheetLayoutListenable = ValueListenable<SheetLayout?>;
 
 /// Stores the geometry of the viewport and the layout constraints
@@ -82,11 +83,17 @@ typedef SheetLayoutListenable = ValueListenable<SheetLayout?>;
 ///
 /// Intended to be the child of a sheet, and the parent of its content.
 class SheetMediaQuery extends StatelessWidget {
+  /// Creates the media query a sheet's content sees.
   @visibleForTesting
   const SheetMediaQuery({super.key, required this.layoutSpec, required this.layoutNotifier, required this.child});
 
+  /// The viewport geometry the content is laid out in.
   final SheetLayoutSpec layoutSpec;
+
+  /// Reports the sheet's layout as it changes.
   final SheetLayoutListenable layoutNotifier;
+
+  /// The sheet's content.
   final Widget child;
 
   @override
@@ -160,7 +167,13 @@ class _InheritedSheetMediaQuery extends InheritedWidget {
       layoutSpec != oldWidget.layoutSpec || layoutNotifier != oldWidget.layoutNotifier;
 }
 
+/// The area a sheet lives in: it lays the sheet out at the bottom and moves it with its position.
+///
+/// Modal routes add one for you. Place one yourself to keep a sheet on a screen without a route (an always-on,
+/// Maps-style sheet); the page outside the sheet stays interactive. [padding] keeps the sheet clear of edges, for
+/// example of the safe area's top.
 class OnaSheetViewport extends StatefulWidget {
+  /// Creates a viewport for the sheet in [child].
   const OnaSheetViewport({super.key, this.padding = EdgeInsets.zero, required this.child});
 
   /// The inset the viewport applies to the [child].
@@ -173,7 +186,7 @@ class OnaSheetViewport extends StatefulWidget {
   ///   padding: EdgeInsets.only(
   ///     bottom: MediaQuery.viewInsetsOf(context).bottom,
   ///   ),
-  ///   child: OnaBottomSheet(...),
+  ///   child: RawSheet(...),
   /// );
   /// ```
   ///
@@ -181,6 +194,7 @@ class OnaSheetViewport extends StatefulWidget {
   /// - [BareSheet.padding], which is similar but pads the sheet content.
   final EdgeInsets padding;
 
+  /// The sheet, or a subtree with one sheet in it.
   final Widget child;
 
   @override
@@ -416,9 +430,13 @@ class _SheetConstraints extends BoxConstraints {
   int get hashCode => Object.hash(super.hashCode, viewportSize, viewportInsets, viewportPadding, viewportViewPadding);
 }
 
+/// Draws a sheet's surface and decides how tall it is drawn.
 @immutable
 abstract interface class SheetDecoration {
+  /// The height to draw the surface at, given the sheet's [offset].
   double preferredExtent(double offset, ViewportLayout layout);
+
+  /// Wraps [child], the sheet, in the surface.
   Widget build(BuildContext context, Widget child);
 }
 
@@ -496,10 +514,8 @@ class _RenderDebugAssertSheetDecorationUsage extends RenderProxyBox {
 
     if (constraints.biggest < _expectedLayoutSpec.maxSheetRect.size) {
       throw AssertionError(
-        // ignore: lines_longer_than_80_chars
         'The available space for laying out the sheet is smaller than expected. '
         'It is likely that the widget built by the given $_sheetDecorationType '
-        // ignore: lines_longer_than_80_chars
         'adds extra padding or margin around the "child" widget (e.g., Padding). '
         'Make sure that the widget returned by the $_sheetDecorationType.build '
         'method always has the same size as the "child" widget.',
@@ -526,7 +542,7 @@ class BareSheet extends StatefulWidget {
   /// as the software keyboard appears, preventing it from being covered.
   ///
   /// ```dart
-  /// OnaBottomSheet(
+  /// RawSheet(
   ///   padding: EdgeInsets.only(
   ///     bottom: MediaQuery.viewInsetsOf(context).bottom,
   ///   ),
@@ -538,7 +554,7 @@ class BareSheet extends StatefulWidget {
   /// the keyboard is closed:
   ///
   /// ```dart
-  /// OnaBottomSheet(
+  /// RawSheet(
   ///   padding: EdgeInsets.only(
   ///     bottom: math.max(
   ///       MediaQuery.viewInsetsOf(context).bottom,
@@ -565,7 +581,7 @@ class BareSheet extends StatefulWidget {
   /// to avoid the keyboard.
   ///
   /// ```dart
-  /// OnaBottomSheet(
+  /// RawSheet(
   ///   detents: const SheetDetents(
   ///     snaps: [SheetOffset(0.2), SheetOffset(0.5), SheetOffset(1)],
   ///   ),
@@ -615,7 +631,7 @@ class BareSheet extends StatefulWidget {
   ///   padding: EdgeInsets.only(
   ///     bottom: MediaQuery.viewInsetsOf(context).bottom,
   ///   ),
-  ///   child: OnaBottomSheet(...),
+  ///   child: RawSheet(...),
   /// );
   /// ```
   ///

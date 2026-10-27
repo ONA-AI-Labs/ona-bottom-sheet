@@ -7,8 +7,8 @@ import 'package:ona_bottom_sheet/src/foundation/model.dart';
 import 'package:ona_bottom_sheet/src/foundation/model_owner.dart';
 import 'package:ona_bottom_sheet/src/physics/detents.dart';
 import 'package:ona_bottom_sheet/src/scroll/scrollable.dart';
-import 'package:ona_bottom_sheet/src/widgets/bottom_sheet.dart';
 import 'package:ona_bottom_sheet/src/widgets/keyboard_dismissible.dart';
+import 'package:ona_bottom_sheet/src/widgets/raw_sheet.dart';
 import 'package:ona_bottom_sheet/src/widgets/viewport.dart';
 
 import 'src/auto_dispose.dart';
@@ -72,7 +72,7 @@ void main() {
         controller: controller,
         child: const _TestApp(
           child: OnaSheetViewport(
-            child: OnaBottomSheet(scrollConfiguration: SheetScrollConfiguration(), child: _TestSheetContent()),
+            child: RawSheet(scrollConfiguration: SheetScrollConfiguration(), child: _TestSheetContent()),
           ),
         ),
       ),
@@ -99,7 +99,7 @@ void main() {
               return OnaSheetViewport(
                 key: viewportKey,
                 padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-                child: OnaBottomSheet(
+                child: RawSheet(
                   key: sheetKey,
                   controller: controller,
                   scrollConfiguration: const SheetScrollConfiguration(),
@@ -150,7 +150,7 @@ void main() {
       await tester.pumpWidget(
         _TestApp(
           child: OnaSheetViewport(
-            child: OnaBottomSheet(
+            child: RawSheet(
               scrollConfiguration: const SheetScrollConfiguration(),
               controller: controller,
               child: SheetScrollable(
@@ -205,7 +205,7 @@ void main() {
       await tester.pumpWidget(
         _TestApp(
           child: OnaSheetViewport(
-            child: OnaBottomSheet(
+            child: RawSheet(
               scrollConfiguration: const SheetScrollConfiguration(),
               child: SheetScrollable(
                 controller: scrollController,
@@ -273,7 +273,7 @@ void main() {
         child: SheetKeyboardDismissible(
           dismissBehavior: const SheetKeyboardDismissBehavior.onDrag(isContentScrollAware: true),
           child: OnaSheetViewport(
-            child: OnaBottomSheet(
+            child: RawSheet(
               scrollConfiguration: const SheetScrollConfiguration(),
               child: Material(
                 child: Column(
@@ -328,7 +328,7 @@ void main() {
     setUp(() {
       scrollController = autoDispose(SheetScrollController());
       testWidget = OnaSheetViewport(
-        child: OnaBottomSheet(
+        child: RawSheet(
           scrollConfiguration: const SheetScrollConfiguration(),
           child: SheetScrollable(
             controller: scrollController,

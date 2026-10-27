@@ -6,8 +6,8 @@ import 'package:ona_bottom_sheet/src/foundation/model.dart';
 import 'package:ona_bottom_sheet/src/foundation/model_owner.dart';
 import 'package:ona_bottom_sheet/src/physics/detents.dart';
 import 'package:ona_bottom_sheet/src/physics/physics.dart';
-import 'package:ona_bottom_sheet/src/widgets/bottom_sheet.dart';
 import 'package:ona_bottom_sheet/src/widgets/decorations.dart';
+import 'package:ona_bottom_sheet/src/widgets/raw_sheet.dart';
 import 'package:ona_bottom_sheet/src/widgets/viewport.dart';
 
 import 'src/flutter_test_x.dart';
@@ -22,7 +22,7 @@ void main() {
       MaterialApp(
         home: OnaSheetViewport(
           key: viewportKey,
-          child: OnaBottomSheet(
+          child: RawSheet(
             initialOffset: const SheetOffset.absolute(300),
             detents: const SheetDetents(snaps: [SheetOffset.absolute(300), SheetOffset(1)]),
             physics: const ClampingSheetPhysics(),
@@ -37,11 +37,11 @@ void main() {
       offsetHistory.add(viewportKey.currentState!.model.offset);
     });
 
-    expect(tester.getRect(find.byType(OnaBottomSheet)).top, 300);
-    await tester.fling(find.byType(OnaBottomSheet), const Offset(0, -80), 2000);
+    expect(tester.getRect(find.byType(RawSheet)).top, 300);
+    await tester.fling(find.byType(RawSheet), const Offset(0, -80), 2000);
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(find.byType(OnaBottomSheet)).top, 200);
+    expect(tester.getRect(find.byType(RawSheet)).top, 200);
     expect(
       offsetHistory,
       isMonotonicallyIncreasing,
@@ -56,7 +56,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: OnaSheetViewport(
-          child: OnaBottomSheet(
+          child: RawSheet(
             key: const Key('sheet'),
             physics: const BouncingSheetPhysics(),
             decoration: const MaterialSheetDecoration(size: SheetSize.stretch),
@@ -75,7 +75,7 @@ void main() {
     expect(tester.getRect(find.byId('sheet')).top, 100);
 
     // Over-drag the sheet upward.
-    final gesture = await tester.startDrag(tester.getCenter(find.byType(OnaBottomSheet)), AxisDirection.up);
+    final gesture = await tester.startDrag(tester.getCenter(find.byType(RawSheet)), AxisDirection.up);
     await gesture.moveUpwardBy(100);
     await tester.pump();
     expect(model.activity, isA<DragSheetActivity>());
@@ -114,7 +114,7 @@ void main() {
             builder: (context) {
               return OnaSheetViewport(
                 padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-                child: OnaBottomSheet(
+                child: RawSheet(
                   key: sheetKey,
                   initialOffset: const SheetOffset.absolute(150),
                   detents: const SheetDetents.stepless(),
@@ -158,7 +158,7 @@ void main() {
     // attached to the viewport without having any metrics yet.
     await tester.pumpWidget(
       const MaterialApp(
-        home: OnaSheetViewport(child: OnaBottomSheet(child: SizedBox(height: 400))),
+        home: OnaSheetViewport(child: RawSheet(child: SizedBox(height: 400))),
       ),
       phase: EnginePhase.build,
     );
@@ -185,7 +185,7 @@ void main() {
       return MaterialApp(
         home: OnaSheetViewport(
           key: viewportKey,
-          child: OnaBottomSheet(
+          child: RawSheet(
             key: ValueKey(sheetKey),
             child: SizedBox(height: contentHeight),
           ),

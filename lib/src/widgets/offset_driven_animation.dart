@@ -3,7 +3,11 @@ import 'package:flutter/animation.dart';
 import '../foundation/controller.dart';
 import '../foundation/model.dart';
 
+/// An animation whose value follows the sheet's position: 0 at [startOffset], 1 at [endOffset].
+///
+/// Drive anything from where the sheet is, for example the opacity of a header that appears as it rises.
 class SheetOffsetDrivenAnimation extends Animation<double> {
+  /// Creates an animation driven by the sheet [controller] watches.
   SheetOffsetDrivenAnimation({
     required OnaSheetController controller,
     required this.initialValue,
@@ -13,8 +17,14 @@ class SheetOffsetDrivenAnimation extends Animation<double> {
        assert(initialValue >= 0.0 && initialValue <= 1.0);
 
   final OnaSheetController _controller;
+
+  /// The value before the sheet is laid out.
   final double initialValue;
+
+  /// Where the value is 0; the sheet's lowest stop when null.
   final SheetOffset? startOffset;
+
+  /// Where the value is 1; the sheet's highest stop when null.
   final SheetOffset? endOffset;
 
   @override

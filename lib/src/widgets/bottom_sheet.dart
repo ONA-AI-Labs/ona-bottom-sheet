@@ -1,180 +1,180 @@
-import 'package:flutter/widgets.dart';
-import 'package:meta/meta.dart';
+/// @docImport '../modal/show.dart';
+library;
 
-import '../foundation/activity.dart';
+import 'package:flutter/gestures.dart' show DeviceGestureSettings;
+import 'package:flutter/material.dart';
+
 import '../foundation/controller.dart';
 import '../foundation/model.dart';
 import '../foundation/model_owner.dart';
 import '../gestures/draggable.dart';
-import '../gestures/gesture_proxy.dart';
 import '../physics/detents.dart';
 import '../physics/physics.dart';
 import '../scroll/scrollable.dart';
+import '../theme/theme.dart';
+import 'decorations.dart';
+import 'keyboard_dismissible.dart';
+import 'raw_sheet.dart';
 import 'viewport.dart';
 
-class _DraggableScrollableSheetModelConfig extends SheetModelConfig {
-  const _DraggableScrollableSheetModelConfig({
-    required super.physics,
-    required super.detents,
-    required super.gestureProxy,
-    required this.scrollConfiguration,
+/// Ona's bottom sheet: a [RawSheet] dressed and tuned by the ambient [OnaBottomSheetTheme].
+///
+/// Out of the box it rests where Apple's sheets do ([SheetDetents.adaptive]: whole when its content fits, else half
+/// and full), settles on the theme's spring, never moves past its highest stop, shares one drag with a scroll view
+/// inside it, follows the finger exactly from the theme's touch slop, rises above the keyboard and lets a drag down
+/// put the keyboard away. Every one of those can be changed here.
+///
+/// Show it modally with [showOnaBottomSheet], or keep it on a screen by placing it in an [OnaSheetViewport]:
+///
+/// ```dart
+/// Stack(children: [
+///   const MapView(),
+///   OnaSheetViewport(
+///     child: OnaBottomSheet(
+///       detents: SheetDetents(snaps: [SheetOffset.absolute(120), SheetOffset(1)]),
+///       child: const PlacesList(),
+///     ),
+///   ),
+/// ]);
+/// ```
+class OnaBottomSheet extends StatelessWidget {
+  /// Creates a sheet showing [child].
+  const OnaBottomSheet({
+    super.key,
+    required this.child,
+    this.detents,
+    this.initialOffset,
+    this.controller,
+    this.physics,
+    this.backgroundColor,
+    this.cornerRadius,
+    this.decoration,
+    this.scrollConfiguration = const SheetScrollConfiguration(),
+    this.dragConfiguration = const SheetDragConfiguration(),
+    this.keyboardDismissBehavior = const SheetKeyboardDismissBehavior.onDragDown(),
+    this.avoidsKeyboard = true,
   });
 
+  /// The sheet's content, typically an [OnaSheetScaffold].
+  final Widget child;
+
+  /// Where the sheet can rest; [SheetDetents.adaptive] with the theme's flick projection when null.
+  final SheetDetents? detents;
+
+  /// Where the sheet opens; the lower stop of adaptive detents, else the content's full height, when null.
+  final SheetOffset? initialOffset;
+
+  /// Observes and moves the sheet.
+  final OnaSheetController? controller;
+
+  /// How the sheet responds past its bounds and how it settles; clamped on the theme's spring when null.
+  final SheetPhysics? physics;
+
+  /// The surface colour; the theme's when null.
+  final Color? backgroundColor;
+
+  /// The radius of the top corners; the theme's when null.
+  final double? cornerRadius;
+
+  /// Replaces the themed surface entirely when set.
+  final SheetDecoration? decoration;
+
+  /// How the sheet and a scroll view inside it share a drag; on by default.
   final SheetScrollConfiguration scrollConfiguration;
 
+  /// How the sheet responds to drags.
+  final SheetDragConfiguration dragConfiguration;
+
+  /// When a drag puts the keyboard away; null keeps it up.
+  final SheetKeyboardDismissBehavior? keyboardDismissBehavior;
+
+  /// Whether the content rises above the on-screen keyboard.
+  final bool avoidsKeyboard;
+
   @override
-  _DraggableScrollableSheetModelConfig copyWith({
-    SheetPhysics? physics,
-    SheetDetents? detents,
-    SheetGestureProxyMixin? gestureProxy,
-    SheetScrollConfiguration? scrollConfiguration,
-  }) {
-    return _DraggableScrollableSheetModelConfig(
-      physics: physics ?? this.physics,
-      detents: detents ?? this.detents,
-      gestureProxy: gestureProxy ?? this.gestureProxy,
-      scrollConfiguration: scrollConfiguration ?? this.scrollConfiguration,
+  Widget build(BuildContext context) {
+    final OnaBottomSheetTheme theme = OnaBottomSheetTheme.of(context);
+    final MediaQueryData media = MediaQuery.of(context);
+    final SheetDetents effectiveDetents =
+        detents ?? AdaptiveSheetDetents(flickProjection: theme.motion.flickProjection);
+    final SheetOffset effectiveInitialOffset =
+        initialOffset ??
+        switch (effectiveDetents) {
+          final AdaptiveSheetDetents adaptive => adaptive.rest,
+          _ => const SheetOffset(1),
+        };
+
+    Widget sheet = RawSheet(
+      controller: controller,
+      initialOffset: effectiveInitialOffset,
+      detents: effectiveDetents,
+      physics: physics ?? ClampingSheetPhysics(spring: theme.motion.settle),
+      scrollConfiguration: scrollConfiguration,
+      dragConfiguration: dragConfiguration,
+      padding: avoidsKeyboard ? EdgeInsets.only(bottom: media.viewInsets.bottom) : EdgeInsets.zero,
+      decoration:
+          decoration ??
+          BoxSheetDecoration(
+            size: SheetSize.fit,
+            decoration: ShapeDecoration(
+              color: backgroundColor ?? theme.backgroundColor,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(cornerRadius ?? theme.cornerRadius)),
+              ),
+            ),
+          ),
+      child: child,
+    );
+    if (keyboardDismissBehavior case final SheetKeyboardDismissBehavior behavior) {
+      sheet = SheetKeyboardDismissible(dismissBehavior: behavior, child: sheet);
+    }
+    // One slop for the sheet's own drag and every scroll view in it.
+    return MediaQuery(
+      data: media.copyWith(gestureSettings: DeviceGestureSettings(touchSlop: theme.touchSlop)),
+      child: sheet,
     );
   }
 }
 
-class _DraggableScrollableSheetModel extends SheetModel<_DraggableScrollableSheetModelConfig>
-    with ScrollAwareSheetModelMixin {
-  _DraggableScrollableSheetModel(super.context, super.config, {required SheetOffset initialOffset}) {
-    beginActivity(InitialSheetActivity(preferredInitialOffset: initialOffset));
-  }
+/// The grabber at the top of a sheet: the place a thumb takes hold of it.
+///
+/// For screen readers it is an adjustable control: swiping up or down moves the sheet to its next stop, as
+/// VoiceOver does with a native sheet's grabber.
+class OnaSheetGrabber extends StatelessWidget {
+  /// Creates a grabber in the theme's colour and size, unless [color] or [size] are given.
+  const OnaSheetGrabber({super.key, this.color, this.size, this.semanticsLabel = 'Sheet grabber'});
 
-  @override
-  SheetScrollConfiguration get scrollConfiguration => config.scrollConfiguration;
-}
+  /// The grabber's colour; the theme's when null.
+  final Color? color;
 
-class OnaBottomSheet extends StatelessWidget {
-  const OnaBottomSheet({
-    super.key,
-    this.initialOffset = const SheetOffset(1),
-    this.physics,
-    this.detents = const SheetDetents.single(snap: SheetOffset(1)),
-    this.controller,
-    this.scrollConfiguration = SheetScrollConfiguration.disabled,
-    this.dragConfiguration = const SheetDragConfiguration(),
-    this.decoration = const DefaultSheetDecoration(),
-    this.padding = EdgeInsets.zero,
-    required this.child,
-  });
+  /// The grabber's size; the theme's when null.
+  final Size? size;
 
-  /// {@macro ScrollableSheetPosition.initialPosition}
-  final SheetOffset initialOffset;
-
-  /// {@macro SheetPosition.physics}
-  final SheetPhysics? physics;
-
-  final SheetDetents detents;
-
-  /// An object that can be used to control and observe the sheet height.
-  final OnaSheetController? controller;
-
-  /// Controls how the sheet integrates with scrollable content.
-  ///
-  /// Set to [SheetScrollConfiguration.disabled] to prevent the sheet position
-  /// from being synchronized with scroll views inside the sheet.
-  final SheetScrollConfiguration scrollConfiguration;
-
-  /// Controls how the sheet responds to drag gestures.
-  ///
-  /// Set to [SheetDragConfiguration.disabled] to prevent the sheet from
-  /// being dragged.
-  final SheetDragConfiguration dragConfiguration;
-
-  final SheetDecoration decoration;
-
-  /// {@macro viewport.BareSheet.padding}
-  final EdgeInsets padding;
-
-  /// The content of the sheet.
-  final Widget child;
+  /// What screen readers call the grabber.
+  final String semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
-    return SheetModelOwner(
-      controller: controller ?? DefaultOnaSheetController.maybeOf(context),
-      factory: _createModel,
-      config: _DraggableScrollableSheetModelConfig(
-        physics: physics ?? kDefaultSheetPhysics,
-        detents: detents,
-        gestureProxy: SheetGestureProxy.maybeOf(context),
-        scrollConfiguration: scrollConfiguration,
-      ),
-      child: BareSheet(
-        decoration: decoration,
-        padding: padding,
-        child: DraggableScrollableSheetContent(
-          scrollConfiguration: scrollConfiguration,
-          dragConfiguration: dragConfiguration,
-          child: child,
+    final OnaBottomSheetTheme theme = OnaBottomSheetTheme.of(context);
+    final SheetModel? model = SheetModelOwner.of(context);
+    final Size effectiveSize = size ?? theme.grabberSize;
+    return Semantics(
+      label: semanticsLabel,
+      onIncrease: model == null ? null : () => _step(model, up: true),
+      onDecrease: model == null ? null : () => _step(model, up: false),
+      child: SizedBox.fromSize(
+        size: effectiveSize,
+        child: DecoratedBox(
+          decoration: ShapeDecoration(color: color ?? theme.grabberColor, shape: const StadiumBorder()),
         ),
       ),
     );
   }
 
-  _DraggableScrollableSheetModel _createModel(SheetContext context, _DraggableScrollableSheetModelConfig config) {
-    return _DraggableScrollableSheetModel(context, config, initialOffset: initialOffset);
-  }
-}
-
-@internal
-class DraggableScrollableSheetContent extends StatefulWidget {
-  const DraggableScrollableSheetContent({
-    super.key,
-    required this.scrollConfiguration,
-    required this.dragConfiguration,
-    required this.child,
-  });
-
-  final SheetScrollConfiguration scrollConfiguration;
-
-  final SheetDragConfiguration dragConfiguration;
-
-  final Widget child;
-
-  @override
-  State<DraggableScrollableSheetContent> createState() => _DraggableScrollableSheetContentState();
-}
-
-class _DraggableScrollableSheetContentState extends State<DraggableScrollableSheetContent> {
-  SheetScrollController? _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.scrollConfiguration != SheetScrollConfiguration.disabled) {
-      _scrollController = _createScrollController();
-    }
-  }
-
-  @override
-  void dispose() {
-    _scrollController?.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(DraggableScrollableSheetContent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.scrollConfiguration != SheetScrollConfiguration.disabled) {
-      _scrollController ??= _createScrollController();
-    }
-  }
-
-  SheetScrollController _createScrollController() {
-    return SheetScrollController();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget result = SheetDraggable(configuration: widget.dragConfiguration, child: widget.child);
-    if (_scrollController case final controller?) {
-      result = SheetScrollable(controller: controller, child: result);
-    }
-    return result;
+  /// Moves the sheet to its next stop up or down: the stop a very fast release would pick.
+  static void _step(SheetModel model, {required bool up}) {
+    if (!model.hasMetrics) return;
+    final SheetOffset target = model.detents.getSnapOffset(model, model.offset, up ? 1e6 : -1e6);
+    model.animateTo(target, curve: Curves.easeOutCubic);
   }
 }
