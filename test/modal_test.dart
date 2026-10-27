@@ -1,0 +1,1230 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:ona_bottom_sheet/ona_bottom_sheet.dart';
+
+import 'src/flutter_test_x.dart';
+import 'src/matchers.dart';
+import 'src/test_stateful_widget.dart';
+
+class _Boilerplate extends StatelessWidget {
+  const _Boilerplate({required this.modalRoute});
+
+  final OnaBottomSheetRoute<dynamic> modalRoute;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.push(context, modalRoute);
+                },
+                child: const Text('Open modal'),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _BoilerplateWithPagesApi extends StatefulWidget {
+  const _BoilerplateWithPagesApi({super.key, required this.initialPages});
+
+  final List<Page<dynamic>> initialPages;
+
+  static Page<dynamic> createHomePage({VoidCallback? onPressOpenModalButton}) {
+    return MaterialPage(
+      key: const ObjectKey('home'),
+      child: Scaffold(
+        body: Center(
+          child: ElevatedButton(onPressed: onPressOpenModalButton, child: const Text('Open modal')),
+        ),
+      ),
+    );
+  }
+
+  @override
+  State<_BoilerplateWithPagesApi> createState() => _BoilerplateWithPagesApiState();
+}
+
+class _BoilerplateWithPagesApiState extends State<_BoilerplateWithPagesApi> {
+  List<Page<dynamic>> get pages => _pages;
+  late List<Page<dynamic>> _pages;
+  set pages(List<Page<dynamic>> value) {
+    setState(() => _pages = value);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [...widget.initialPages];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Navigator(
+        pages: _pages,
+        onDidRemovePage: (page) {
+          setState(() => _pages.remove(page));
+        },
+      ),
+    );
+  }
+}
+
+class _BoilerplateWithGoRouter extends StatefulWidget {
+  const _BoilerplateWithGoRouter({required this.modalPage, this.onExitModal});
+
+  final OnaBottomSheetPage<dynamic> modalPage;
+  final FutureOr<bool> Function()? onExitModal;
+
+  @override
+  State<_BoilerplateWithGoRouter> createState() => _BoilerplateWithGoRouterState();
+}
+
+class _BoilerplateWithGoRouterState extends State<_BoilerplateWithGoRouter> {
+  late final GoRouter _router = _createRouter();
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp.router(routerConfig: _router);
+  }
+
+  GoRouter _createRouter() {
+    final modalPage = widget.modalPage;
+    final onExitModal = widget.onExitModal;
+    return GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) {
+            return Scaffold(
+              body: Center(
+                child: ElevatedButton(onPressed: () => context.go('/modal'), child: const Text('Open modal')),
+              ),
+            );
+          },
+          routes: [
+            GoRoute(
+              path: 'modal',
+              pageBuilder: (context, state) => modalPage,
+              onExit: onExitModal != null ? (context, state) => onExitModal() : null,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+void main() {
+  group('Swipe-to-dismiss action test', () {
+    Widget boilerplate({
+      SwipeDismissSensitivity sensitivity = const SwipeDismissSensitivity(),
+      bool swipeDismissible = true,
+      Widget Function(Widget sheet)? builder,
+    }) {
+      return _Boilerplate(
+        modalRoute: OnaBottomSheetRoute<dynamic>(
+          swipeDismissible: swipeDismissible,
+          swipeDismissSensitivity: sensitivity,
+          builder: (context) {
+            final result = OnaBottomSheet(
+              child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 600),
+            );
+            return builder?.call(result) ?? result;
+          },
+        ),
+      );
+    }
+
+    testWidgets('modal should be dismissed if swipe gesture has enough speed', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        boilerplate(
+          sensitivity: const SwipeDismissSensitivity(
+            minFlingVelocityRatio: 1.0,
+            dismissalOffset: SheetOffset.absolute(0),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.fling(
+        find.byKey(const Key('sheet')),
+        const Offset(0, 200),
+        901, // ratio = velocity (901.0) / screen-height (900.0) > threshold-ratio
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsNothing);
+    });
+
+    testWidgets('modal should not be dismissed if swipe gesture has not enough speed', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        boilerplate(
+          sensitivity: const SwipeDismissSensitivity(
+            minFlingVelocityRatio: 1.0,
+            dismissalOffset: SheetOffset.absolute(0),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.fling(
+        find.byKey(const Key('sheet')),
+        const Offset(0, 200),
+        899, // ratio = velocity (899.0) / screen-height (900.0) < threshold-ratio
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+    });
+
+    testWidgets('modal should be dismissed if drag distance is enough', (tester) async {
+      await tester.pumpWidget(
+        boilerplate(
+          sensitivity: const SwipeDismissSensitivity(
+            minFlingVelocityRatio: 5.0,
+            dismissalOffset: SheetOffset.absolute(500),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.drag(find.byKey(const Key('sheet')), const Offset(0, 101));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsNothing);
+    });
+
+    testWidgets('modal should be dismissed if drag distance is enough by expression', (tester) async {
+      await tester.pumpWidget(
+        boilerplate(
+          sensitivity: const SwipeDismissSensitivity(minFlingVelocityRatio: 5.0, dismissalOffset: SheetOffset(0.4)),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.drag(find.byKey(const Key('sheet')), const Offset(0, (600 * 0.6) + 1));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsNothing);
+    });
+
+    testWidgets('modal should not be dismissed if drag distance is not enough', (tester) async {
+      await tester.pumpWidget(
+        boilerplate(
+          sensitivity: const SwipeDismissSensitivity(
+            minFlingVelocityRatio: 5.0,
+            dismissalOffset: SheetOffset.absolute(500),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.drag(find.byKey(const Key('sheet')), const Offset(0, 100));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+    });
+
+    testWidgets('modal should not be dismissed if swipe-to-dismiss is disabled', (tester) async {
+      await tester.pumpWidget(
+        boilerplate(
+          swipeDismissible: false,
+          sensitivity: const SwipeDismissSensitivity(
+            minFlingVelocityRatio: 1.0,
+            dismissalOffset: SheetOffset.absolute(1000),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.fling(find.byKey(const Key('sheet')), const Offset(0, 200), 1000);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+    });
+
+    // Swipe-to-close can be switched on and off while the route is showing.
+    testWidgets('swipeDismissible should be able to be changed dynamically', (tester) async {
+      Page<dynamic> createModalPage({required bool swipeDismissible}) {
+        return OnaBottomSheetPage(
+          key: const ValueKey('modal'),
+          swipeDismissible: swipeDismissible,
+          swipeDismissSensitivity: const SwipeDismissSensitivity(minFlingVelocityRatio: 1.0),
+          child: OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 600),
+          ),
+        );
+      }
+
+      Future<void> performDismissingFling() async {
+        await tester.fling(
+          find.byKey(const Key('sheet')),
+          const Offset(0, 200),
+          1000, // Sufficient velocity to dismiss
+        );
+        await tester.pumpAndSettle();
+      }
+
+      final boilerplateKey = GlobalKey<_BoilerplateWithPagesApiState>();
+      await tester.pumpWidget(
+        _BoilerplateWithPagesApi(
+          key: boilerplateKey,
+          initialPages: [_BoilerplateWithPagesApi.createHomePage(), createModalPage(swipeDismissible: false)],
+        ),
+      );
+      expect(find.byId('sheet'), findsOneWidget);
+      await performDismissingFling();
+      expect(find.byId('sheet'), findsOneWidget, reason: 'Should not be dismissible when swipeDismissible is false');
+
+      // Update the page to make the modal dismissible.
+      boilerplateKey.currentState!.pages = [
+        _BoilerplateWithPagesApi.createHomePage(),
+        createModalPage(swipeDismissible: true),
+      ];
+      await tester.pumpAndSettle();
+      expect(find.byId('sheet'), findsOneWidget);
+      await performDismissingFling();
+      expect(find.byId('sheet'), findsNothing, reason: 'Should be dismissible when swipeDismissible is true');
+    });
+  });
+
+  group('Default modal barrier', () {
+    const barrierLabel = 'test-barrier';
+    late List<double> capturedAlphas;
+    late OnaBottomSheetRoute<dynamic> route;
+
+    setUp(() {
+      capturedAlphas = [];
+      route = OnaBottomSheetRoute<dynamic>(
+        barrierLabel: barrierLabel,
+        barrierColor: const Color(0xFF000000), // alpha = 1.0
+        transitionDuration: const Duration(milliseconds: 300),
+        swipeDismissible: true,
+        swipeDismissSensitivity: const SwipeDismissSensitivity(dismissalOffset: SheetOffset(0.4)),
+        builder: (_) {
+          return OnaBottomSheet(
+            detents: const SheetDetents(snaps: [SheetOffset(0.5), SheetOffset(1)]),
+            child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 600),
+          );
+        },
+      );
+    });
+
+    double? captureCurrentAlpha(WidgetTester tester) {
+      final barrier = tester
+          .widgetList<ModalBarrier>(
+            find.byWidgetPredicate((w) => w is ModalBarrier && w.semanticsLabel == barrierLabel),
+          )
+          .firstOrNull;
+
+      final alpha = barrier?.color?.a;
+      if (alpha != null) {
+        capturedAlphas.add(alpha);
+      }
+      return alpha;
+    }
+
+    testWidgets('should fade in/out along with push/pop animation', (tester) async {
+      await tester.pumpWidget(_Boilerplate(modalRoute: route));
+      await tester.tap(find.text('Open modal'));
+      await tester.pump();
+
+      for (var i = 1; i <= 10; ++i) {
+        await tester.pump(const Duration(milliseconds: 30));
+        final alpha = captureCurrentAlpha(tester);
+        final expectedProgres = i / 10;
+        expect(route.animation!.value, moreOrLessEquals(expectedProgres));
+        expect(alpha, route.barrierCurve.transform(expectedProgres));
+      }
+
+      await tester.pumpAndSettle();
+      expect(capturedAlphas.last, 1);
+      expect(capturedAlphas, isMonotonicallyIncreasing);
+
+      capturedAlphas.clear();
+      route.navigator!.pop();
+
+      for (var i = 10; i >= 0; --i) {
+        await tester.pump(const Duration(milliseconds: 30));
+        final alpha = captureCurrentAlpha(tester);
+        final expectedProgress = i / 10;
+        expect(route.animation!.value, moreOrLessEquals(expectedProgress));
+        expect(alpha, route.barrierCurve.transform(expectedProgress));
+      }
+
+      await tester.pumpAndSettle();
+      expect(capturedAlphas.last, 0);
+      expect(capturedAlphas, isMonotonicallyDecreasing);
+    });
+
+    testWidgets('should start fading out after swipe-to-dismiss action is triggered', (tester) async {
+      await tester.pumpWidget(_Boilerplate(modalRoute: route));
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      capturedAlphas.clear();
+      final gesture = await tester.startDrag(tester.getCenter(find.byId('sheet')), AxisDirection.down);
+      await gesture.moveDownwardBy(50 - kDragSlopDefault);
+      captureCurrentAlpha(tester);
+      for (var i = 0; i < 5; ++i) {
+        await gesture.moveDownwardBy(50);
+        captureCurrentAlpha(tester);
+      }
+
+      expect(tester.getTopLeft(find.byId('sheet')).dy, 300);
+      expect(capturedAlphas, everyElement(1), reason: 'alpha should not change before transition starts');
+
+      // Drag the sheet down further, enough to dismiss it.
+      capturedAlphas.clear();
+      for (var i = 0; i < 5; ++i) {
+        await gesture.moveDownwardBy(20);
+        await tester.pump();
+        captureCurrentAlpha(tester);
+      }
+
+      // We've dragged the minimized sheet down by 100px,
+      // which is 1/6 of the screen height.
+      expect(route.animation!.value, moreOrLessEquals(5 / 6));
+      expect(capturedAlphas.first, lessThan(1));
+      // At this point the visual sheet offset is 200px,
+      // which is 2/3 of the minimized sheet height.
+      expect(capturedAlphas.last, moreOrLessEquals(2 / 3));
+      expect(capturedAlphas, isMonotonicallyDecreasing, reason: 'alpha should start decreasing along with transition');
+
+      capturedAlphas.clear();
+      await gesture.up();
+      await tester.pump();
+      for (var i = 1; i <= 5; ++i) {
+        await tester.pump(const Duration(milliseconds: 20));
+        captureCurrentAlpha(tester);
+      }
+
+      // Although it's still in the middle of the transition,
+      // the sheet is no longer visible, and neither is the barrier.
+      expect(route.animation!.value, moreOrLessEquals(0.5));
+      expect(capturedAlphas.last, moreOrLessEquals(0));
+
+      await tester.pumpAndSettle();
+
+      expect(find.byId('sheet'), findsNothing);
+      expect(capturedAlphas.first, lessThan(2 / 3));
+      expect(capturedAlphas.last, moreOrLessEquals(0));
+      expect(capturedAlphas, isMonotonicallyDecreasing);
+    });
+  });
+
+  // A PopScope inside the sheet decides whether a swipe or back gesture may close it.
+  group('PopScope test', () {
+    late bool isOnPopInvokedCalled;
+    late Widget testWidget;
+
+    setUp(() {
+      isOnPopInvokedCalled = false;
+      testWidget = _Boilerplate(
+        modalRoute: OnaBottomSheetRoute(
+          swipeDismissible: true,
+          builder: (context) {
+            return OnaBottomSheet(
+              child: PopScope(
+                canPop: false,
+                onPopInvokedWithResult: (didPop, _) {
+                  isOnPopInvokedCalled = true;
+                },
+                child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 200),
+              ),
+            );
+          },
+        ),
+      );
+    });
+
+    testWidgets('existance of PopScope should take precedence over swipeDismissible flag', (tester) async {
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      await tester.fling(find.byKey(const Key('sheet')), const Offset(0, 200), 2000);
+      await tester.pumpAndSettle();
+      expect(find.byId('sheet'), findsOneWidget);
+    });
+
+    testWidgets('PopScope.onPopInvoked should be called when tap on barrier', (tester) async {
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AnimatedModalBarrier));
+      await tester.pumpAndSettle();
+      expect(isOnPopInvokedCalled, isTrue);
+    });
+
+    testWidgets('PopScope.onPopInvoked should be called when swipe to dismiss', (tester) async {
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      await tester.fling(find.byKey(const Key('sheet')), const Offset(0, 200), 2000);
+      await tester.pumpAndSettle();
+      expect(isOnPopInvokedCalled, isTrue);
+    });
+  });
+
+  group('SheetPopScope test', () {
+    Widget boilerplate({required Widget Function(Widget sheet) popScopeBuilder, required bool swipeDismissible}) {
+      return _Boilerplate(
+        modalRoute: OnaBottomSheetRoute(
+          swipeDismissible: swipeDismissible,
+          swipeDismissSensitivity: const SwipeDismissSensitivity(dismissalOffset: SheetOffset.absolute(500)),
+          builder: (context) {
+            return OnaBottomSheet(
+              physics: const ClampingSheetPhysics(),
+              child: popScopeBuilder(
+                Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 400),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Future<void> openModal(WidgetTesterX tester) async {
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(find.byId('sheet'), findsOneWidget);
+      expect(tester.getRect(find.byId('sheet')).top, 200);
+    }
+
+    Future<TestGesture> performSwipeGesture(WidgetTesterX tester, {required bool shouldGestureEnabled}) async {
+      final gesture = await tester.startDrag(tester.getCenter(find.byId('sheet')), AxisDirection.down);
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byId('sheet')).top,
+        shouldGestureEnabled ? greaterThan(200) : 200,
+        reason: shouldGestureEnabled ? 'Swipe gesture should be enabled.' : 'Swipe gesture should be disabled.',
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      return gesture;
+    }
+
+    testWidgets('Can pop; Gesture is enabled', (tester) async {
+      var isOnPopInvokedCalled = false;
+      final testWidget = boilerplate(
+        swipeDismissible: true,
+        popScopeBuilder: (sheet) => SheetPopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, _) {
+            isOnPopInvokedCalled = true;
+          },
+          child: sheet,
+        ),
+      );
+
+      await tester.pumpWidget(testWidget);
+      await openModal(tester);
+      await performSwipeGesture(tester, shouldGestureEnabled: true);
+      expect(isOnPopInvokedCalled, isTrue);
+      expect(find.byId('sheet'), findsNothing);
+    });
+
+    testWidgets('Cannot pop; Gesture is enabled', (tester) async {
+      var isOnPopInvokedCalled = false;
+      final testWidget = boilerplate(
+        swipeDismissible: true,
+        popScopeBuilder: (sheet) => SheetPopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            isOnPopInvokedCalled = true;
+          },
+          child: sheet,
+        ),
+      );
+
+      await tester.pumpWidget(testWidget);
+      await openModal(tester);
+      await performSwipeGesture(tester, shouldGestureEnabled: true);
+      expect(isOnPopInvokedCalled, isTrue);
+      expect(find.byId('sheet'), findsOneWidget);
+    });
+
+    testWidgets('Cannot pop; Gesture is disabled', (tester) async {
+      final testWidget = boilerplate(
+        swipeDismissible: true,
+        popScopeBuilder: (sheet) => SheetPopScope<dynamic>(canPop: false, onPopInvokedWithResult: null, child: sheet),
+      );
+      await tester.pumpWidget(testWidget);
+      await openModal(tester);
+      await performSwipeGesture(tester, shouldGestureEnabled: false);
+      expect(find.byId('sheet'), findsOneWidget);
+    });
+
+    testWidgets('Dynamically enable/disable the swipe gesture', (tester) async {
+      const ({bool canPop, PopInvokedWithResultCallback<dynamic>? callback}) initialPopScopeConfig = (
+        canPop: false,
+        callback: null,
+      );
+
+      final popScopeStateKey =
+          GlobalKey<TestStatefulWidgetState<({bool canPop, PopInvokedWithResultCallback<dynamic>? callback})>>();
+
+      final testWidget = boilerplate(
+        swipeDismissible: true,
+        popScopeBuilder: (sheet) => TestStatefulWidget(
+          key: popScopeStateKey,
+          initialState: initialPopScopeConfig,
+          builder: (context, config) =>
+              SheetPopScope(canPop: config.canPop, onPopInvokedWithResult: config.callback, child: sheet),
+        ),
+      );
+
+      await tester.pumpWidget(testWidget);
+      await openModal(tester);
+
+      // 1. Cannot pop; Gesture is also disabled.
+      await performSwipeGesture(tester, shouldGestureEnabled: false);
+      expect(find.byId('sheet'), findsOneWidget);
+
+      // 2. Cannot pop; Gesture is enabled.
+      popScopeStateKey.currentState!.state = (canPop: false, callback: (_, _) {});
+      await tester.pumpAndSettle();
+      await performSwipeGesture(tester, shouldGestureEnabled: true);
+      expect(find.byId('sheet'), findsOneWidget);
+
+      // 3. Can pop; Gesture is enabled.
+      popScopeStateKey.currentState!.state = (canPop: true, callback: (_, _) {});
+      await tester.pumpAndSettle();
+      await performSwipeGesture(tester, shouldGestureEnabled: true);
+      expect(find.byId('sheet'), findsNothing);
+    });
+
+    testWidgets('If OnaBottomSheetRoute.swipeDismissible is false, the modal should never '
+        'be popped and the gesture should always be disabled, regardless of '
+        'the existence of SheetPopScope', (tester) async {
+      final testWidget = boilerplate(
+        swipeDismissible: false,
+        popScopeBuilder: (sheet) => SheetPopScope(canPop: true, onPopInvokedWithResult: (_, _) {}, child: sheet),
+      );
+
+      await tester.pumpWidget(testWidget);
+      await openModal(tester);
+      await performSwipeGesture(tester, shouldGestureEnabled: false);
+      expect(find.byId('sheet'), findsOneWidget);
+    });
+  });
+
+  // The transition's status and curve stay consistent through a swipe, so the sheet never jerks.
+  group('Transition animation status and animation curve consistency test', () {
+    ({Widget testWidget, OnaBottomSheetRoute<dynamic> modalRoute, ValueGetter<bool> popInvoked}) boilerplate() {
+      var popInvoked = false;
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        swipeDismissible: true,
+        transitionCurve: Curves.easeInOut,
+        swipeDismissSensitivity: const SwipeDismissSensitivity(dismissalOffset: SheetOffset.absolute(250)),
+        builder: (context) {
+          return OnaBottomSheet(
+            child: PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) {
+                  popInvoked = true;
+                  Navigator.pop(context);
+                }
+              },
+              child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 400),
+            ),
+          );
+        },
+      );
+
+      return (testWidget: _Boilerplate(modalRoute: modalRoute), modalRoute: modalRoute, popInvoked: () => popInvoked);
+    }
+
+    testWidgets('Swipe-to-dismissed', (tester) async {
+      final env = boilerplate();
+      await tester.pumpWidget(env.testWidget);
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(env.modalRoute.animation!.isCompleted, isTrue);
+      expect(env.modalRoute.effectiveCurve, Curves.easeInOut);
+
+      // Start dragging.
+      final gesture = await tester.press(find.byKey(const Key('sheet')));
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      // End dragging and then a pop animation starts.
+      await gesture.moveBy(const Offset(0, 100));
+      await gesture.up();
+      expect(env.popInvoked(), isTrue);
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      // Ensure that the pop animation is completed.
+      await tester.pumpAndSettle();
+      expect(env.modalRoute.animation!.isDismissed, isTrue);
+      expect(env.modalRoute.effectiveCurve, Curves.easeInOut);
+    });
+
+    testWidgets('Swipe-to-dismiss canceled', (tester) async {
+      final env = boilerplate();
+      await tester.pumpWidget(env.testWidget);
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(env.modalRoute.animation!.isCompleted, isTrue);
+      expect(env.modalRoute.effectiveCurve, Curves.easeInOut);
+
+      // Start dragging.
+      final gesture = await tester.press(find.byKey(const Key('sheet')));
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      // Release the drag, triggering the modal
+      // to settle back to its original position.
+      await gesture.up();
+      expect(env.popInvoked(), isFalse);
+      expect(env.modalRoute.animation!.status, AnimationStatus.forward);
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute.animation!.isCompleted, isFalse);
+      expect(env.modalRoute.animation!.isDismissed, isFalse);
+      expect(env.modalRoute.effectiveCurve, Curves.linear);
+
+      // Ensure that the pop animation is completed.
+      await tester.pumpAndSettle();
+      expect(env.modalRoute.animation!.isCompleted, isTrue);
+      expect(env.modalRoute.effectiveCurve, Curves.easeInOut);
+    });
+  });
+
+  // The same, with pages (Navigator 2.0).
+  group('Transition animation status and animation curve consistency test '
+      'with Navigator 2.0', () {
+    ({Widget testWidget, ValueGetter<OnaBottomSheetRouteMixin<dynamic>?> modalRoute, ValueGetter<bool> popInvoked})
+    boilerplate() {
+      var popInvoked = false;
+      OnaBottomSheetRouteMixin<dynamic>? modalRoute;
+      final testWidget = _BoilerplateWithGoRouter(
+        onExitModal: () {
+          popInvoked = true;
+          return true;
+        },
+        modalPage: OnaBottomSheetPage(
+          swipeDismissible: true,
+          transitionCurve: Curves.easeInOut,
+          swipeDismissSensitivity: const SwipeDismissSensitivity(dismissalOffset: SheetOffset.absolute(250)),
+          child: Builder(
+            builder: (context) {
+              modalRoute = ModalRoute.of(context)! as OnaBottomSheetRouteMixin<dynamic>;
+
+              return OnaBottomSheet(
+                child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 400),
+              );
+            },
+          ),
+        ),
+      );
+
+      return (testWidget: testWidget, modalRoute: () => modalRoute, popInvoked: () => popInvoked);
+    }
+
+    testWidgets('Swipe-to-dismissed', (tester) async {
+      final env = boilerplate();
+      await tester.pumpWidget(env.testWidget);
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(env.modalRoute()!.animation!.isCompleted, isTrue);
+      expect(env.modalRoute()!.effectiveCurve, Curves.easeInOut);
+
+      // Start dragging.
+      final gesture = await tester.press(find.byKey(const Key('sheet')));
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      // End dragging and then a pop animation starts.
+      await gesture.moveBy(const Offset(0, 100));
+      await gesture.up();
+      expect(env.popInvoked(), isTrue);
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      // Ensure that the pop animation is completed.
+      await tester.pumpAndSettle();
+      expect(env.modalRoute()!.animation!.isDismissed, isTrue);
+      expect(env.modalRoute()!.effectiveCurve, Curves.easeInOut);
+    });
+
+    testWidgets('Swipe-to-dismiss canceled', (tester) async {
+      final env = boilerplate();
+      await tester.pumpWidget(env.testWidget);
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+      expect(env.modalRoute()!.animation!.isCompleted, isTrue);
+      expect(env.modalRoute()!.effectiveCurve, Curves.easeInOut);
+
+      // Start dragging.
+      final gesture = await tester.press(find.byKey(const Key('sheet')));
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await gesture.moveBy(const Offset(0, 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      // Release the drag, triggering the modal
+      // to settle back to its original position.
+      await gesture.up();
+      expect(env.popInvoked(), isFalse);
+      expect(env.modalRoute()!.animation!.status, AnimationStatus.forward);
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(env.modalRoute()!.animation!.isCompleted, isFalse);
+      expect(env.modalRoute()!.animation!.isDismissed, isFalse);
+      expect(env.modalRoute()!.effectiveCurve, Curves.linear);
+
+      // Ensure that the pop animation is completed.
+      await tester.pumpAndSettle();
+      expect(env.modalRoute()!.animation!.isCompleted, isTrue);
+      expect(env.modalRoute()!.effectiveCurve, Curves.easeInOut);
+    });
+  });
+
+  group('OnaBottomSheetRoute barrierBuilder test', () {
+    Widget boilerplate({required OnaBottomSheetRoute<dynamic> modalRoute}) {
+      return MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(context, modalRoute);
+                  },
+                  child: const Text('Open modal'),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    testWidgets('barrierBuilder should be called when provided', (tester) async {
+      var wasBuilderCalled = false;
+      ModalRoute<dynamic>? capturedRoute;
+      VoidCallback? capturedCallback;
+
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        barrierBuilder: (route, onDismiss) {
+          wasBuilderCalled = true;
+          capturedRoute = route;
+          capturedCallback = onDismiss;
+          return Container(key: const Key('custom-barrier'), color: Colors.red.withValues(alpha: 0.5));
+        },
+        builder: (context) {
+          return OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, height: 400),
+          );
+        },
+      );
+
+      await tester.pumpWidget(boilerplate(modalRoute: modalRoute));
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      expect(wasBuilderCalled, isTrue);
+      expect(capturedRoute, isNotNull);
+      expect(capturedCallback, isNotNull);
+      expect(find.byKey(const Key('custom-barrier')), findsOneWidget);
+    });
+
+    testWidgets('barrierBuilder should receive the correct route instance', (tester) async {
+      ModalRoute<dynamic>? capturedRoute;
+
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        barrierColor: Colors.blue,
+        barrierDismissible: false,
+        barrierBuilder: (route, onDismiss) {
+          capturedRoute = route;
+          return Container(key: const Key('custom-barrier'));
+        },
+        builder: (context) {
+          return OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, height: 400),
+          );
+        },
+      );
+
+      await tester.pumpWidget(boilerplate(modalRoute: modalRoute));
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      expect(capturedRoute, equals(modalRoute));
+      expect(capturedRoute!.barrierColor, Colors.blue);
+      expect(capturedRoute!.barrierDismissible, isFalse);
+    });
+
+    testWidgets('onDismiss callback should dismiss the modal when called', (tester) async {
+      VoidCallback? capturedCallback;
+
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        barrierBuilder: (route, onDismiss) {
+          capturedCallback = onDismiss;
+          return GestureDetector(
+            key: const Key('custom-barrier'),
+            onTap: onDismiss,
+            child: Container(color: Colors.red.withValues(alpha: 0.5)),
+          );
+        },
+        builder: (context) {
+          return OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, height: 400),
+          );
+        },
+      );
+
+      await tester.pumpWidget(boilerplate(modalRoute: modalRoute));
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+      expect(capturedCallback, isNotNull);
+
+      capturedCallback!();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('sheet')), findsNothing);
+    });
+
+    testWidgets('default barrier should be used when barrierBuilder is null', (tester) async {
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        barrierColor: Colors.black54,
+        barrierBuilder: null,
+        builder: (context) {
+          return OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, height: 400),
+          );
+        },
+      );
+
+      await tester.pumpWidget(boilerplate(modalRoute: modalRoute));
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+      expect(find.byType(AnimatedModalBarrier), findsOneWidget);
+    });
+  });
+
+  group('barrierBuilder edge cases', () {
+    testWidgets('onDismiss should only work when animation is completed', (tester) async {
+      VoidCallback? capturedCallback;
+
+      final modalRoute = OnaBottomSheetRoute<dynamic>(
+        transitionDuration: const Duration(milliseconds: 500),
+        barrierBuilder: (route, onDismiss) {
+          capturedCallback = onDismiss;
+          return GestureDetector(
+            key: const Key('custom-barrier'),
+            onTap: onDismiss,
+            child: Container(color: Colors.red.withValues(alpha: 0.5)),
+          );
+        },
+        builder: (context) {
+          return OnaBottomSheet(
+            child: Container(key: const Key('sheet'), color: Colors.white, height: 400),
+          );
+        },
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(context, modalRoute);
+                    },
+                    child: const Text('Open modal'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open modal'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      capturedCallback!();
+      await tester.pump();
+
+      expect(find.byKey(const Key('sheet')), findsOneWidget);
+
+      await tester.pumpAndSettle();
+    });
+  });
+
+  group('SheetVisibilityNotifier', () {
+    (Widget, OnaBottomSheetRoute<dynamic>) boilerplate({
+      bool dismissible = true,
+      SheetDetents snaps = const SheetDetents.single(snap: SheetOffset(1)),
+    }) {
+      final route = OnaBottomSheetRoute<dynamic>(
+        swipeDismissible: dismissible,
+        swipeDismissSensitivity: const SwipeDismissSensitivity(dismissalOffset: SheetOffset(0.3)),
+        builder: (context) {
+          return OnaBottomSheet(
+            detents: snaps,
+            initialOffset: const SheetOffset(1),
+            physics: const BouncingSheetPhysics(),
+            child: Container(key: const Key('sheet'), color: Colors.white, width: double.infinity, height: 500),
+          );
+        },
+      );
+
+      return (_Boilerplate(modalRoute: route), route);
+    }
+
+    testWidgets('should update visibility along with sheet position', (tester) async {
+      final (testWidget, route) = boilerplate(
+        dismissible: false,
+        snaps: const SheetDetents(snaps: [SheetOffset(0), SheetOffset(0.5), SheetOffset(1)]),
+      );
+
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(find.byId('sheet')),
+        const Rect.fromLTWH(0, 100, 800, 500),
+        reason: 'sheet should be fully visible',
+      );
+      expect(route.sheetVisibility.value, 1);
+
+      await tester.dragUpward(find.byId('sheet'), deltaY: 50);
+      await tester.pump();
+
+      expect(tester.getTopLeft(find.byId('sheet')).dy, lessThan(100));
+      expect(route.sheetVisibility.value, 1, reason: 'visibility should never exceeds 1');
+
+      await tester.fling(find.byId('sheet'), const Offset(0, 60), 1000);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(find.byId('sheet')),
+        const Rect.fromLTWH(0, 350, 800, 500),
+        reason: 'sheet should rest at mid-snap point',
+      );
+      expect(route.sheetVisibility.value, 0.5);
+
+      await tester.flingFrom(
+        tester.getRect(find.byId('sheet')).topCenter + const Offset(0, 50),
+        const Offset(0, 60),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getRect(find.byId('sheet')),
+        const Rect.fromLTWH(0, 600, 800, 500),
+        reason: 'entire sheet should be outside viewport',
+      );
+      expect(route.sheetVisibility.value, 0.0);
+    });
+
+    testWidgets('should notify listeners of visibility during push/pop animations', (tester) async {
+      final (testWidget, route) = boilerplate();
+
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pump();
+
+      final notifiedValues = [route.sheetVisibility.value];
+      route.sheetVisibility.addListener(() {
+        notifiedValues.add(route.sheetVisibility.value);
+      });
+      await tester.pumpAndSettle(const Duration(milliseconds: 16));
+
+      expect(notifiedValues.first, 0);
+      expect(notifiedValues.last, 1);
+      expect(notifiedValues, isMonotonicallyIncreasing);
+
+      notifiedValues.clear();
+      route.navigator!.pop();
+      await tester.pumpAndSettle();
+
+      expect(notifiedValues.first, greaterThan(0.98));
+      expect(notifiedValues.last, 0);
+      expect(notifiedValues, isMonotonicallyDecreasing);
+    });
+
+    testWidgets('should notify listeners of visibility during swipe-to-dismiss gesture', (tester) async {
+      final (testWidget, route) = boilerplate();
+
+      await tester.pumpWidget(testWidget);
+      await tester.tap(find.text('Open modal'));
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.startDrag(tester.getCenter(find.byId('sheet')), AxisDirection.down);
+      await gesture.moveDownwardBy(50 - kDragSlopDefault);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.9));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.8));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.7));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.6));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.5));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.4));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.3));
+
+      await gesture.moveDownwardBy(50);
+      await tester.pump();
+      expect(route.sheetVisibility.value, moreOrLessEquals(0.2));
+      expect(
+        tester.getTopLeft(find.byId('sheet')).dy,
+        moreOrLessEquals(500),
+        reason: 'sheet should exceed dismissal offset',
+      );
+
+      final notifiedValues = <double>[];
+      route.sheetVisibility.addListener(() {
+        notifiedValues.add(route.sheetVisibility.value);
+      });
+      await gesture.up();
+      // Use a shorter interval than the default so that the intermediate
+      // frames of the dismissing animation are captured.
+      await tester.pumpAndSettle(const Duration(milliseconds: 16));
+
+      expect(find.byId('sheet'), findsNothing);
+      expect(notifiedValues.first, lessThan(0.2));
+      expect(notifiedValues.last, 0);
+      expect(
+        notifiedValues,
+        isMonotonicallyDecreasing,
+        reason: 'visibility should keep being updated after the release',
+      );
+    });
+  });
+}
