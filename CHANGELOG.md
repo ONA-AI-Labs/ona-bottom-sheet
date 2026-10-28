@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- Glass is Apple's Liquid Glass (`UIGlassEffect`) on iOS 26 and later, drawn by iOS behind the sheet's content:
+  - in the sheet's shape, light or dark to match the theme
+  - a veil in the sheet's colour fades in over it toward the highest stop; at the top, iOS stops drawing it
+  - iOS is messaged only when the shape, brightness or visibility changes, never per frame
+- Elsewhere, and before iOS 26, the Flutter-drawn glass stays as it was.
+- The package is now a Flutter plugin on iOS (a small Swift view, CocoaPods and Swift Package Manager). It adds no
+  dependencies.
+
 ## 0.2.1
 
 - Glass: the light rim fades out with the glass as the pane turns solid, so a full sheet has no highlight line
