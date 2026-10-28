@@ -1,4 +1,5 @@
 /// @docImport '../physics/physics.dart';
+/// @docImport '../widgets/bottom_sheet.dart';
 library;
 
 import 'dart:collection';
@@ -40,6 +41,11 @@ enum SheetScrollHandlingBehavior {
   /// Otherwise, the sheet will not handle the scroll gesture, and the list
   /// view may perform overscroll-driven animations such as the bouncing effect
   /// for [BouncingScrollPhysics] as usual.
+  ///
+  /// Momentum follows the same rule, as on iOS: while the sheet rests at a
+  /// stop, a flick's momentum stays in the list, which bounces at its ends;
+  /// it never carries the sheet. A sheet the drag left between stops settles
+  /// as usual. This is [OnaBottomSheet]'s default.
   onlyFromTop,
 }
 
@@ -241,6 +247,15 @@ mixin ScrollAwareSheetModelMixin<C extends SheetModelConfig> on SheetModel<C> im
 
   @override
   void goBallisticWithScrollPosition({required double velocity, required SheetScrollPosition scrollPosition}) {
+    // The platform's way (onlyFromTop): momentum never moves a sheet that rests at a stop. It stays in the content,
+    // which carries on and bounces at its ends on its own physics; only a sheet left between stops settles here.
+    if (scrollConfiguration.scrollSyncMode == SheetScrollHandlingBehavior.onlyFromTop &&
+        physics.createBallisticSimulation(0, this, detents) == null) {
+      scrollPosition.goBallistic(velocity, calledByOwner: true);
+      goIdle();
+      return;
+    }
+
     if (FloatComp.distance(context.devicePixelRatio).isApprox(scrollPosition.pixels, scrollPosition.minScrollExtent)) {
       final simulation = physics.createBallisticSimulation(velocity, this, detents);
       if (simulation != null) {
@@ -299,7 +314,10 @@ mixin ScrollAwareSheetModelMixin<C extends SheetModelConfig> on SheetModel<C> im
 
   bool _shouldHandleScroll(ScrollPosition scrollPosition) => switch (scrollConfiguration.scrollSyncMode) {
     SheetScrollHandlingBehavior.always => true,
-    SheetScrollHandlingBehavior.onlyFromTop => scrollPosition.pixels == 0,
+    // Within a device pixel of the top: a bounce can settle a hair away from it.
+    SheetScrollHandlingBehavior.onlyFromTop => FloatComp.distance(
+      context.devicePixelRatio,
+    ).isApprox(scrollPosition.pixels, scrollPosition.minScrollExtent),
   };
 }
 

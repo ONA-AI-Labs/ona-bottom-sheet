@@ -220,6 +220,69 @@ void main() {
       expect(list.pixels, moreOrLessEquals(list.maxScrollExtent, epsilon: 0.5), reason: 'and springs back');
     });
 
+    Future<ScrollPosition> openAtFullScrolled(WidgetTester tester) async {
+      await host(tester, (BuildContext context) {
+        unawaited(showOnaBottomSheet<void>(context: context, builder: (_) => bouncingSheet()));
+      });
+      await tester.drag(find.text('Title'), const Offset(0, -600));
+      await settle(tester);
+      expect(top(tester), moreOrLessEquals(0, epsilon: 1));
+      final ScrollPosition list = tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+      list.jumpTo(600);
+      await tester.pump();
+      return list;
+    }
+
+    /// Pumps [frames] frames and returns the lowest and highest list positions seen.
+    Future<(double, double)> watch(WidgetTester tester, ScrollPosition list, {int frames = 90}) async {
+      double low = list.pixels, high = list.pixels;
+      for (int i = 0; i < frames; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (list.pixels < low) low = list.pixels;
+        if (list.pixels > high) high = list.pixels;
+      }
+      return (low, high);
+    }
+
+    testWidgets('a flick down a scrolled list bounces at its top; the sheet stays where it is', (tester) async {
+      final ScrollPosition list = await openAtFullScrolled(tester);
+      await tester.fling(find.text('Row 15'), const Offset(0, 200), 3000);
+      final (double low, _) = await watch(tester, list);
+      expect(low, lessThan(list.minScrollExtent - 5), reason: 'the list overshoots its top and bounces');
+      expect(top(tester), moreOrLessEquals(0, epsilon: 0.5), reason: 'momentum never moves the sheet');
+      expect(list.pixels, moreOrLessEquals(list.minScrollExtent, epsilon: 0.5));
+    });
+
+    testWidgets('a drag that reaches the top rubber-bands the list; only a new pull from the top moves the sheet', (
+      tester,
+    ) async {
+      final ScrollPosition list = await openAtFullScrolled(tester);
+      final TestGesture finger = await tester.startGesture(tester.getCenter(find.text('Row 15')));
+      for (int i = 0; i < 20; i++) {
+        await finger.moveBy(const Offset(0, 40));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(list.pixels, lessThan(list.minScrollExtent - 10), reason: 'past the top, the list stretches');
+      expect(top(tester), moreOrLessEquals(0, epsilon: 0.5), reason: 'the scroll that began in the list stays there');
+      await finger.up();
+      await settle(tester);
+      expect(list.pixels, moreOrLessEquals(list.minScrollExtent, epsilon: 0.5));
+
+      // At rest at its top: now a pull down takes the sheet.
+      await tester.timedDrag(find.text('Row 2'), const Offset(0, 300), const Duration(milliseconds: 500));
+      await settle(tester);
+      expect(top(tester), moreOrLessEquals(phone.height / 2, epsilon: 1));
+    });
+
+    testWidgets('a flick up bounces at the end of the list; the sheet stays where it is', (tester) async {
+      final ScrollPosition list = await openAtFullScrolled(tester);
+      await tester.fling(find.text('Row 15'), const Offset(0, -200), 4000);
+      final (_, double high) = await watch(tester, list, frames: 120);
+      expect(high, greaterThan(list.maxScrollExtent + 5), reason: 'the list overshoots its end and bounces');
+      expect(top(tester), moreOrLessEquals(0, epsilon: 0.5));
+      expect(list.pixels, moreOrLessEquals(list.maxScrollExtent, epsilon: 0.5));
+    });
+
     testWidgets('at half, pulling the list down at its top still closes the sheet', (tester) async {
       await host(tester, (BuildContext context) {
         unawaited(showOnaBottomSheet<void>(context: context, builder: (_) => bouncingSheet()));

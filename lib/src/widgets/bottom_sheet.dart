@@ -49,7 +49,10 @@ class OnaBottomSheet extends StatelessWidget {
     this.backgroundColor,
     this.cornerRadius,
     this.decoration,
-    this.scrollConfiguration = const SheetScrollConfiguration(delegateUnhandledOverscrollToChild: true),
+    this.scrollConfiguration = const SheetScrollConfiguration(
+      scrollSyncMode: SheetScrollHandlingBehavior.onlyFromTop,
+      delegateUnhandledOverscrollToChild: true,
+    ),
     this.dragConfiguration = const SheetDragConfiguration(),
     this.keyboardDismissBehavior = const SheetKeyboardDismissBehavior.onDragDown(),
     this.avoidsKeyboard = true,
@@ -81,9 +84,10 @@ class OnaBottomSheet extends StatelessWidget {
 
   /// How the sheet and a scroll view inside it share a drag; on by default.
   ///
-  /// By default a scroll the sheet cannot take (past its highest stop, which it never goes beyond) is passed to the
-  /// list, so a list with bouncing physics, iOS's default, bounces at its ends while the sheet stays put. A pull down
-  /// at the list's top still moves, or closes, the sheet first.
+  /// By default it works as on iOS ([SheetScrollHandlingBehavior.onlyFromTop]): a drag that starts with the list at
+  /// its top moves the sheet (up to its highest stop, then the list); a drag that starts with the list scrolled, and
+  /// any flick's momentum, stay in the list, which bounces at its ends while the sheet stays put. With bouncing
+  /// physics (iOS's default) the list rubber-bands at both ends.
   final SheetScrollConfiguration scrollConfiguration;
 
   /// How the sheet responds to drags.

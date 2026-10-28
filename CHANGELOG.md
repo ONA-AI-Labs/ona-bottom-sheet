@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- Scrolling inside a sheet works as on iOS, now `OnaBottomSheet`'s default (`SheetScrollHandlingBehavior.onlyFromTop`):
+  - A drag that starts with the list at its top moves the sheet; a drag that starts with the list scrolled stays in the
+    list, which rubber-bands at its top instead of pulling the sheet down.
+  - A flick's momentum never moves a sheet resting at a stop: the list carries on and bounces at its top or end.
+- `onlyFromTop` decides "at the top" within a device pixel, so a list that has just bounced back hands the next pull
+  down to the sheet.
+
 ## 0.1.1
 
 - A list in an `OnaBottomSheet` now bounces at its ends (with bouncing physics, iOS's default) while the sheet stays
