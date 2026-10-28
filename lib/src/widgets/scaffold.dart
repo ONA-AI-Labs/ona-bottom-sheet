@@ -1,3 +1,6 @@
+/// @docImport '../theme/theme.dart';
+library;
+
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -215,7 +218,8 @@ class OnaSheetScaffold extends StatelessWidget {
 
   /// Color of the [Material] widget that underlies the entire scaffold.
   ///
-  /// Defaults to [ThemeData.scaffoldBackgroundColor].
+  /// Transparent by default, so the sheet's own surface (its decoration, or the [OnaBottomSheetTheme]'s colour and
+  /// rounded corners) shows through; ink splashes still draw on it.
   final Color? backgroundColor;
 
   /// Widget that is displayed at the top of the scaffold.
@@ -229,7 +233,7 @@ class OnaSheetScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBackgroundColor = backgroundColor ?? Theme.of(context).scaffoldBackgroundColor;
+    final effectiveBackgroundColor = backgroundColor ?? Colors.transparent;
 
     var effectiveHeader = header;
     if (effectiveHeader case PreferredSizeWidget(:final preferredSize)) {

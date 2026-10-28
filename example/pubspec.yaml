@@ -1,0 +1,22 @@
+name: ona_bottom_sheet_example
+description: A tour of ona_bottom_sheet, Ona's bottom sheets.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ona_bottom_sheet:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

@@ -500,7 +500,7 @@ void main() {
       expect(tester.widget(find.byType(Material)), isA<Material>().having((m) => m.color, 'color', Colors.purple));
     });
 
-    testWidgets('Applies background color from theme when not explicitly set', (tester) async {
+    testWidgets("Leaves the sheet's own surface showing when no colour is set", (tester) async {
       final env = boilerplate(
         builder: (context) => Theme(
           data: ThemeData(scaffoldBackgroundColor: Colors.purple),
@@ -509,7 +509,7 @@ void main() {
       );
 
       await tester.pumpWidget(env.testWidget);
-      expect(tester.widget(find.byType(Material)), isA<Material>().having((m) => m.color, 'color', Colors.purple));
+      expect(tester.widget(find.byType(Material)), isA<Material>().having((m) => m.color, 'color', Colors.transparent));
     });
 
     testWidgets('Exposes height of header as MediaQueryData.padding.top '

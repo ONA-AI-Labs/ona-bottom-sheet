@@ -273,8 +273,12 @@ void main() {
     }
 
     testWidgets('light by default, dark in a dark theme, and an extension wins over both', (tester) async {
-      await host(tester, showLong);
+      await host(tester, showLong, theme: ThemeData(scaffoldBackgroundColor: const Color(0xFFF2F2F7)));
       expect(surface(tester), OnaBottomSheetTheme.light.backgroundColor);
+      final Material over = tester.widget<Material>(
+        find.descendant(of: find.byType(OnaSheetScaffold), matching: find.byType(Material)).first,
+      );
+      expect(over.color, Colors.transparent, reason: 'nothing paints over the themed surface and its corners');
     });
 
     testWidgets('dark', (tester) async {

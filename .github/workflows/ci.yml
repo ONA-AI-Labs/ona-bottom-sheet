@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.7
+          cache: true
+      - run: flutter pub get
+      - name: Format
+        run: dart format -l 120 --set-exit-if-changed lib test example/lib example/test
+      - name: Analyze
+        run: flutter analyze
+      - name: Test
+        run: flutter test --coverage
+      - name: Coverage at least 90%
+        run: |
+          python3 - <<'PY'
+          import re, sys
+          lf = lh = 0
+          for rec in open('coverage/lcov.info').read().split('end_of_record'):
+              a = re.search(r'LF:(\d+)', rec); b = re.search(r'LH:(\d+)', rec)
+              if a: lf += int(a.group(1)); lh += int(b.group(1))
+          pct = 100 * lh / lf
+          print(f'line coverage {pct:.1f}%')
+          sys.exit(0 if pct >= 90 else 1)
+          PY
+      - name: Example
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+          flutter build web
