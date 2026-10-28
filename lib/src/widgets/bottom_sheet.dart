@@ -11,8 +11,10 @@ import '../gestures/draggable.dart';
 import '../physics/detents.dart';
 import '../physics/physics.dart';
 import '../scroll/scrollable.dart';
+import '../theme/style.dart';
 import '../theme/theme.dart';
 import 'decorations.dart';
+import 'glass_surface.dart';
 import 'keyboard_dismissible.dart';
 import 'raw_sheet.dart';
 import 'viewport.dart';
@@ -48,6 +50,7 @@ class OnaBottomSheet extends StatelessWidget {
     this.physics,
     this.backgroundColor,
     this.cornerRadius,
+    this.style,
     this.decoration,
     this.scrollConfiguration = const SheetScrollConfiguration(
       scrollSyncMode: SheetScrollHandlingBehavior.onlyFromTop,
@@ -78,6 +81,10 @@ class OnaBottomSheet extends StatelessWidget {
 
   /// The radius of the top corners; the theme's when null.
   final double? cornerRadius;
+
+  /// What the sheet is made of, [OnaSheetStyle.solid] or [OnaSheetStyle.glass]; the theme's when null. With high
+  /// contrast on, a sheet is always solid.
+  final OnaSheetStyle? style;
 
   /// Replaces the themed surface entirely when set.
   final SheetDecoration? decoration;
@@ -120,17 +127,7 @@ class OnaBottomSheet extends StatelessWidget {
       scrollConfiguration: scrollConfiguration,
       dragConfiguration: dragConfiguration,
       padding: avoidsKeyboard ? EdgeInsets.only(bottom: media.viewInsets.bottom) : EdgeInsets.zero,
-      decoration:
-          decoration ??
-          BoxSheetDecoration(
-            size: SheetSize.fit,
-            decoration: ShapeDecoration(
-              color: backgroundColor ?? theme.backgroundColor,
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(cornerRadius ?? theme.cornerRadius)),
-              ),
-            ),
-          ),
+      decoration: decoration ?? _surface(context, theme),
       child: child,
     );
     if (keyboardDismissBehavior case final SheetKeyboardDismissBehavior behavior) {
@@ -141,6 +138,31 @@ class OnaBottomSheet extends StatelessWidget {
       data: media.copyWith(gestureSettings: DeviceGestureSettings(touchSlop: theme.touchSlop)),
       child: sheet,
     );
+  }
+}
+
+extension on OnaBottomSheet {
+  /// The themed surface: an opaque card, or liquid glass (solid when the platform asks for high contrast).
+  SheetDecoration _surface(BuildContext context, OnaBottomSheetTheme theme) {
+    final Color color = backgroundColor ?? theme.backgroundColor;
+    final double radius = cornerRadius ?? theme.cornerRadius;
+    final OnaSheetStyle effectiveStyle = MediaQuery.highContrastOf(context)
+        ? OnaSheetStyle.solid
+        : style ?? theme.style;
+    return switch (effectiveStyle) {
+      final GlassSheetStyle glass => SheetDecorationBuilder(
+        size: SheetSize.fit,
+        builder: (BuildContext context, Widget child) =>
+            GlassSheetSurface(style: glass, color: color, cornerRadius: radius, child: child),
+      ),
+      SolidSheetStyle() => BoxSheetDecoration(
+        size: SheetSize.fit,
+        decoration: ShapeDecoration(
+          color: color,
+          shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(radius))),
+        ),
+      ),
+    };
   }
 }
 

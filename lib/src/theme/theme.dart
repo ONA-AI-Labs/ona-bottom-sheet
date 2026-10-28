@@ -7,6 +7,7 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../physics/physics.dart';
+import 'style.dart';
 
 /// How an Ona sheet moves: how it settles on a stop, how it comes in and goes away, and how a flick picks its stop.
 ///
@@ -102,6 +103,7 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
     this.grabberSize = const Size(36, 5),
     this.touchSlop = 10,
     this.motion = const OnaSheetMotion(),
+    this.style = OnaSheetStyle.solid,
   }) : assert(cornerRadius >= 0),
        assert(touchSlop > 0);
 
@@ -150,6 +152,10 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
   /// How the sheet moves.
   final OnaSheetMotion motion;
 
+  /// What the sheet is made of: [OnaSheetStyle.solid] (the default) or [OnaSheetStyle.glass], tinted with
+  /// [backgroundColor].
+  final OnaSheetStyle style;
+
   @override
   OnaBottomSheetTheme copyWith({
     Color? backgroundColor,
@@ -159,6 +165,7 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
     Size? grabberSize,
     double? touchSlop,
     OnaSheetMotion? motion,
+    OnaSheetStyle? style,
   }) {
     return OnaBottomSheetTheme(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -168,6 +175,7 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
       grabberSize: grabberSize ?? this.grabberSize,
       touchSlop: touchSlop ?? this.touchSlop,
       motion: motion ?? this.motion,
+      style: style ?? this.style,
     );
   }
 
@@ -182,6 +190,7 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
       grabberSize: Size.lerp(grabberSize, other.grabberSize, t)!,
       touchSlop: lerpDouble(touchSlop, other.touchSlop, t)!,
       motion: t < 0.5 ? motion : other.motion,
+      style: t < 0.5 ? style : other.style,
     );
   }
 
@@ -194,9 +203,10 @@ class OnaBottomSheetTheme extends ThemeExtension<OnaBottomSheetTheme> {
       other.cornerRadius == cornerRadius &&
       other.grabberSize == grabberSize &&
       other.touchSlop == touchSlop &&
-      other.motion == motion;
+      other.motion == motion &&
+      other.style == style;
 
   @override
   int get hashCode =>
-      Object.hash(backgroundColor, barrierColor, grabberColor, cornerRadius, grabberSize, touchSlop, motion);
+      Object.hash(backgroundColor, barrierColor, grabberColor, cornerRadius, grabberSize, touchSlop, motion, style);
 }

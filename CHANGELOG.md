@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- `OnaSheetStyle`: `solid` (the default) or liquid `glass`, on `OnaBottomSheetTheme.style` or `OnaBottomSheet.style`.
+  - Glass blurs and colour-lifts the page behind, tints it with the theme's background, and catches the top edge with
+    a light rim.
+  - It turns opaque at the highest stop and stops blurring there.
+  - It falls back to solid under high contrast.
+- Glass is drawn by one render object with one clipped backdrop filter. It builds the filter once and reuses its
+  layers, so a drag repaints and never rebuilds.
+- The example has a Liquid glass switch.
+
 ## 0.1.2
 
 - Scrolling inside a sheet works as on iOS, now `OnaBottomSheet`'s default (`SheetScrollHandlingBehavior.onlyFromTop`):

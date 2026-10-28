@@ -2,7 +2,7 @@
 ///
 /// - [showOnaBottomSheet] shows a modal sheet; [OnaBottomSheetRoute] and [OnaBottomSheetPage] give full control and
 ///   declarative navigation.
-/// - [OnaBottomSheet] is the sheet, styled by [OnaBottomSheetTheme]; [OnaSheetScaffold] lays out its header, body and
+/// - [OnaBottomSheet] is the sheet, styled by [OnaBottomSheetTheme], solid or liquid glass ([OnaSheetStyle]); [OnaSheetScaffold] lays out its header, body and
 ///   footer; [OnaSheetGrabber] is its handle.
 /// - [OnaSheetViewport] keeps a sheet on a screen without a route (an always-on, Maps-style sheet).
 /// - [SheetDetents] and [SheetOffset] say where a sheet rests; [SheetPhysics] how it moves; [OnaSheetController]
@@ -34,6 +34,7 @@ export 'src/scroll/scrollable.dart'
         HoldScrollDrivenSheetActivity,
         ScrollAwareSheetModelMixin,
         SheetScrollPosition;
+export 'src/theme/style.dart';
 export 'src/theme/theme.dart';
 export 'src/widgets/bottom_sheet.dart';
 export 'src/widgets/decorations.dart';

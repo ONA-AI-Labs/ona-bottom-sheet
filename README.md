@@ -21,7 +21,8 @@ Bottom sheets for Flutter that move like the platform's own. Built and maintaine
   - Pulling past the top moves nothing.
   - The sheet rises above the keyboard, and a drag down puts the keyboard away.
 - **Modal or always on.** `showOnaBottomSheet` shows a sheet modally. An `OnaSheetViewport` keeps one on a screen, the way Maps does, and the page above it stays usable.
-- **Themed in one place.** Colours, corners, grabber, dimming and motion come from one `ThemeExtension`, with light and dark defaults.
+- **Solid or liquid glass.** An opaque card, or a frosted pane that turns solid at full height, as on iOS.
+- **Themed in one place.** Colours, corners, grabber, dimming, motion and style come from one `ThemeExtension`, with light and dark defaults.
 - **Accessible.**
   - Screen readers name the sheet and can close it with their escape gesture.
   - The grabber is adjustable: swipe up or down to move between stops.
@@ -35,7 +36,7 @@ dependencies:
   ona_bottom_sheet:
     git:
       url: https://github.com/ONA-AI-Labs/ona-bottom-sheet.git
-      ref: v0.1.0
+      ref: v0.2.0
 ```
 
 It needs Flutter 3.41 or later and has no dependencies beyond Flutter and `meta`.
@@ -103,6 +104,31 @@ Put any scroll view in the body. It shares its drag with the sheet automatically
 
 Use `SheetScrollConfiguration(delegateUnhandledOverscrollToChild: true)` with elastic physics (`BouncingSheetPhysics`), so a `RefreshIndicator` receives the overscroll.
 
+## Solid or liquid glass
+
+```dart
+OnaBottomSheetTheme.light.copyWith(style: const OnaSheetStyle.glass())   // every sheet
+OnaBottomSheet(style: const OnaSheetStyle.glass(), child: ...)          // one sheet
+```
+
+`OnaSheetStyle.solid` is the default: an opaque card that costs nothing to draw.
+
+`OnaSheetStyle.glass` shows the page behind through a frosted pane:
+- The page is blurred (`blur`, sigma 24), its colours are lifted (`saturation` 1.8), and the theme's background is laid
+  over it as a tint (`tintOpacity` 0.62).
+- A light rim catches the top edge.
+- As on iOS, the pane turns opaque as the sheet rises to its highest stop (`solidAtFull`). Once it gets there it stops
+  blurring, so a full sheet costs what a solid one does.
+- A sheet with a single stop stays glass.
+- When the platform asks for high contrast, sheets are drawn solid.
+
+How it stays fast:
+- There is one backdrop filter, clipped to the sheet's shape.
+- The filter is built once, and every layer is reused from frame to frame.
+- A drag or a scroll repaints and never rebuilds.
+- While nothing moves, glass costs the same as solid.
+- While the sheet or its list moves, the blur is redrawn each frame, for the visible part of the sheet only.
+
 ## Theming
 
 ```dart
@@ -128,6 +154,7 @@ MaterialApp(
 | `motion.presentDuration` / `presentCurve` | 500 ms, `Cubic(0.32, 0.72, 0, 1)` |
 | `motion.dismissDuration` | 300 ms |
 | `motion.flickProjection` | 0.499 s, the travel a scroll view's normal deceleration gives a flick |
+| `style` | `OnaSheetStyle.solid`, or `OnaSheetStyle.glass(...)` |
 
 Without an extension, the light or dark default follows `ThemeData.brightness`.
 

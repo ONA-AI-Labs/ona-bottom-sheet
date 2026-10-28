@@ -13,6 +13,7 @@ class ExampleApp extends StatefulWidget {
 
 class _ExampleAppState extends State<ExampleApp> {
   ThemeMode _mode = ThemeMode.light;
+  bool _glass = false;
   final GlobalKey<NavigatorState> _navigator = GlobalKey<NavigatorState>();
 
   /// `--dart-define=ONA_TOUR=true` walks through the demos on its own, printing `TOUR <name>` as each one shows:
@@ -31,10 +32,13 @@ class _ExampleAppState extends State<ExampleApp> {
       await Future<void>.delayed(const Duration(seconds: 3));
     }
 
-    for (final bool dark in <bool>[false, true]) {
-      setState(() => _mode = dark ? ThemeMode.dark : ThemeMode.light);
+    for (final (bool dark, bool glass) in <(bool, bool)>[(false, false), (false, true), (true, false), (true, true)]) {
+      setState(() {
+        _mode = dark ? ThemeMode.dark : ThemeMode.light;
+        _glass = glass;
+      });
       await Future<void>.delayed(const Duration(seconds: 1));
-      final String mode = dark ? 'dark' : 'light';
+      final String mode = '${dark ? 'dark' : 'light'}-${glass ? 'glass' : 'solid'}';
       showOnaBottomSheet<void>(context: _navigator.currentContext!, builder: (_) => const _TemplatesSheet());
       await hold('$mode-long');
       _navigator.currentState!.pop();
@@ -51,6 +55,8 @@ class _ExampleAppState extends State<ExampleApp> {
     debugPrint('TOUR done');
   }
 
+  OnaSheetStyle get _style => _glass ? const OnaSheetStyle.glass() : OnaSheetStyle.solid;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -58,21 +64,33 @@ class _ExampleAppState extends State<ExampleApp> {
       title: 'Ona sheets',
       debugShowCheckedModeBanner: false,
       themeMode: _mode,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF4D7BA7), scaffoldBackgroundColor: const Color(0xFFF2F2F7)),
-      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF4D7BA7), brightness: Brightness.dark),
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF4D7BA7),
+        scaffoldBackgroundColor: const Color(0xFFF2F2F7),
+        extensions: <ThemeExtension<dynamic>>[OnaBottomSheetTheme.light.copyWith(style: _style)],
+      ),
+      darkTheme: ThemeData(
+        colorSchemeSeed: const Color(0xFF4D7BA7),
+        brightness: Brightness.dark,
+        extensions: <ThemeExtension<dynamic>>[OnaBottomSheetTheme.dark.copyWith(style: _style)],
+      ),
       home: _Tour(
         dark: _mode == ThemeMode.dark,
         onDark: (bool dark) => setState(() => _mode = dark ? ThemeMode.dark : ThemeMode.light),
+        glass: _glass,
+        onGlass: (bool glass) => setState(() => _glass = glass),
       ),
     );
   }
 }
 
 class _Tour extends StatelessWidget {
-  const _Tour({required this.dark, required this.onDark});
+  const _Tour({required this.dark, required this.onDark, required this.glass, required this.onGlass});
 
   final bool dark;
   final ValueChanged<bool> onDark;
+  final bool glass;
+  final ValueChanged<bool> onGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -130,6 +148,12 @@ class _Tour extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           SwitchListTile.adaptive(title: const Text('Dark mode'), value: dark, onChanged: onDark),
+          SwitchListTile.adaptive(
+            title: const Text('Liquid glass'),
+            subtitle: const Text('Every sheet in glass instead of solid: OnaBottomSheetTheme.style'),
+            value: glass,
+            onChanged: onGlass,
+          ),
         ],
       ),
     );
