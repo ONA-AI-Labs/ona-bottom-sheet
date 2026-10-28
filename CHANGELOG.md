@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Glass: the light rim fades out with the glass as the pane turns solid, so a full sheet has no highlight line
+  down its top edges.
+
 ## 0.2.0
 
 - `OnaSheetStyle`: `solid` (the default) or liquid `glass`, on `OnaBottomSheetTheme.style` or `OnaBottomSheet.style`.

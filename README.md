@@ -36,7 +36,7 @@ dependencies:
   ona_bottom_sheet:
     git:
       url: https://github.com/ONA-AI-Labs/ona-bottom-sheet.git
-      ref: v0.2.0
+      ref: v0.2.1
 ```
 
 It needs Flutter 3.41 or later and has no dependencies beyond Flutter and `meta`.

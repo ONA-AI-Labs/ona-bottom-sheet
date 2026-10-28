@@ -75,11 +75,13 @@ void main() {
     expect(backdrops(tester), hasLength(1), reason: 'one blur, for the whole sheet');
     final RenderGlassSheetSurface surface = tester.renderObject(find.byType(GlassSheetSurface));
     expect(surface.solidity, 0);
+    expect(surface, paints..rsuperellipse(), reason: 'glass has its rim');
 
     await tester.drag(find.text('Title'), const Offset(0, -600));
     await settle(tester);
     expect(surface.solidity, 1);
     expect(backdrops(tester), isEmpty, reason: 'a solid pane blurs nothing');
+    expect(surface, isNot(paints..rsuperellipse()), reason: 'and has no glass rim');
 
     await tester.drag(find.text('Title'), const Offset(0, 250));
     await settle(tester);

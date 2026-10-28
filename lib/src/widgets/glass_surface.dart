@@ -143,22 +143,28 @@ class RenderGlassSheetSurface extends RenderProxyBox {
       if (solid >= 1) {
         // Fully opaque: nothing behind shows, so nothing is blurred.
         _backdrop.layer = null;
-        _paintPane(context, offset, 1);
+        _paintPane(context, offset, 1, 0);
       } else {
         final BackdropFilterLayer backdrop = _backdrop.layer ??= BackdropFilterLayer();
         backdrop.filter = _filter ??= _buildFilter();
         context.pushLayer(backdrop, (PaintingContext context, Offset offset) {
-          _paintPane(context, offset, _style.tintOpacity + (1 - _style.tintOpacity) * solid);
+          // The rim is a glass highlight: it fades out as the pane turns solid.
+          _paintPane(
+            context,
+            offset,
+            _style.tintOpacity + (1 - _style.tintOpacity) * solid,
+            _style.rimOpacity * (1 - solid),
+          );
         }, offset);
       }
     }, oldLayer: _clip.layer);
   }
 
-  void _paintPane(PaintingContext context, Offset offset, double opacity) {
+  void _paintPane(PaintingContext context, Offset offset, double opacity, double rimOpacity) {
     final Rect rect = offset & size;
     final Canvas canvas = context.canvas;
     canvas.drawRect(rect, Paint()..color = _color.withValues(alpha: _color.a * opacity));
-    if (_style.rimOpacity > 0) {
+    if (rimOpacity > 0) {
       // A light rim catching the top edge and corners, fading out a little way down the sides.
       final double fade = _cornerRadius + 24;
       final Rect rimArea = Rect.fromLTWH(rect.left, rect.top, rect.width, fade);
@@ -173,7 +179,7 @@ class RenderGlassSheetSurface extends RenderProxyBox {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 0.5
           ..shader = ui.Gradient.linear(rimArea.topCenter, rimArea.bottomCenter, <Color>[
-            const Color(0xFFFFFFFF).withValues(alpha: _style.rimOpacity),
+            const Color(0xFFFFFFFF).withValues(alpha: rimOpacity),
             const Color(0x00FFFFFF),
           ]),
       );
