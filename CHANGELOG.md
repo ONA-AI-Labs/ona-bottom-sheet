@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- A list in an `OnaBottomSheet` now bounces at its ends (with bouncing physics, iOS's default) while the sheet stays
+  put: the overscroll the clamped sheet cannot take goes to the list. Pulling the list down at its top still lowers
+  or closes the sheet first.
+
 ## 0.1.0
 
 First release.

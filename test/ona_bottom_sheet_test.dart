@@ -182,6 +182,66 @@ void main() {
     });
   });
 
+  group('the list bounces, the sheet does not', () {
+    Widget bouncingSheet() => OnaBottomSheet(
+      child: OnaSheetScaffold(
+        header: header(),
+        body: ListView(
+          physics: const BouncingScrollPhysics(),
+          dragStartBehavior: DragStartBehavior.down,
+          children: <Widget>[for (int i = 0; i < 40; i++) SizedBox(height: 50, child: Text('Row $i'))],
+        ),
+      ),
+    );
+
+    testWidgets('at full, pulling past the end of the list stretches the list, not the sheet, and it springs back', (
+      tester,
+    ) async {
+      await host(tester, (BuildContext context) {
+        unawaited(showOnaBottomSheet<void>(context: context, builder: (_) => bouncingSheet()));
+      });
+      await tester.drag(find.text('Title'), const Offset(0, -600));
+      await settle(tester);
+      expect(top(tester), moreOrLessEquals(0, epsilon: 1));
+      // To the end of the list.
+      await tester.drag(find.text('Row 5'), const Offset(0, -3000));
+      await settle(tester);
+      final ScrollPosition list = tester.state<ScrollableState>(find.byType(Scrollable).last).position;
+      expect(list.pixels, moreOrLessEquals(list.maxScrollExtent, epsilon: 1));
+
+      final TestGesture finger = await tester.startGesture(tester.getCenter(find.text('Row 39')));
+      await finger.moveBy(const Offset(0, -20));
+      await finger.moveBy(const Offset(0, -120));
+      await tester.pump();
+      expect(list.pixels, greaterThan(list.maxScrollExtent + 10), reason: 'the list rubber-bands past its end');
+      expect(top(tester), moreOrLessEquals(0, epsilon: 0.5), reason: 'the sheet stays at the top');
+      await finger.up();
+      await settle(tester);
+      expect(list.pixels, moreOrLessEquals(list.maxScrollExtent, epsilon: 0.5), reason: 'and springs back');
+    });
+
+    testWidgets('at half, pulling the list down at its top still closes the sheet', (tester) async {
+      await host(tester, (BuildContext context) {
+        unawaited(showOnaBottomSheet<void>(context: context, builder: (_) => bouncingSheet()));
+      });
+      expect(top(tester), moreOrLessEquals(phone.height / 2, epsilon: 1));
+      await tester.drag(find.text('Row 2'), const Offset(0, 420));
+      await settle(tester);
+      expect(find.byType(OnaBottomSheet), findsNothing);
+    });
+
+    testWidgets('at full, pulling the list down at its top lowers the sheet to half', (tester) async {
+      await host(tester, (BuildContext context) {
+        unawaited(showOnaBottomSheet<void>(context: context, builder: (_) => bouncingSheet()));
+      });
+      await tester.drag(find.text('Title'), const Offset(0, -600));
+      await settle(tester);
+      await tester.timedDrag(find.text('Row 2'), const Offset(0, 300), const Duration(milliseconds: 500));
+      await settle(tester);
+      expect(top(tester), moreOrLessEquals(phone.height / 2, epsilon: 1));
+    });
+  });
+
   group('closing', () {
     testWidgets('a hard flick closes the sheet at its own speed, quicker than an ordinary close', (tester) async {
       await host(tester, showLong);
