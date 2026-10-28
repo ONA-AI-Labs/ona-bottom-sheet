@@ -11,7 +11,8 @@ import 'package:flutter/foundation.dart';
 sealed class OnaSheetStyle {
   const OnaSheetStyle();
 
-  /// Liquid glass: Apple's own on iOS 26 and later, elsewhere a frosted pane Flutter draws; see [GlassSheetStyle].
+  /// Liquid glass: the page behind seen through a frosted, colour-lifted pane tinted with the theme's background,
+  /// with a light rim along its top edge; see [GlassSheetStyle].
   const factory OnaSheetStyle.glass({
     double blur,
     double saturation,
@@ -36,19 +37,15 @@ final class SolidSheetStyle extends OnaSheetStyle {
   int get hashCode => (SolidSheetStyle).hashCode;
 }
 
-/// A liquid glass surface.
+/// A liquid glass surface: the page behind is blurred by [blur], its colours lifted by [saturation], and tinted with
+/// the theme's background at [tintOpacity]; a light rim of [rimOpacity] catches the top edge.
 ///
-/// On iOS 26 and later it is Apple's Liquid Glass (`UIGlassEffect`), drawn by iOS behind the sheet's content in the
-/// sheet's shape, light or dark to match its colour; iOS is told about the sheet only when that shape, brightness or
-/// visibility changes, never per frame.
+/// It is drawn as one backdrop filter clipped to the sheet's shape, the filter built once and every layer reused, so
+/// a drag repaints and never rebuilds. While the screen is still it costs no more than a solid sheet; while the sheet
+/// or a list in it moves, the blur is redrawn each frame, once, for the visible part of the sheet only.
 ///
-/// Elsewhere, Flutter draws it: the page behind is blurred by [blur], its colours lifted by [saturation], and tinted
-/// with the theme's background at [tintOpacity]; a light rim of [rimOpacity] catches the top edge. These four shape
-/// this pane only. It is one backdrop filter clipped to the sheet's shape, the filter built once and every layer
-/// reused, so a drag repaints and never rebuilds.
-///
-/// With [solidAtFull], as on iOS, the glass turns opaque as the sheet rises to its highest stop and is no longer
-/// drawn once there, so a full sheet reads as a page and costs what a solid one does. A sheet with a single stop stays
+/// With [solidAtFull], as on iOS, the pane turns opaque as the sheet rises to its highest stop and stops blurring
+/// once there, so a full sheet reads as a page and costs what a solid one does. A sheet with a single stop stays
 /// glass. When the platform asks for high contrast, the sheet is drawn solid.
 final class GlassSheetStyle extends OnaSheetStyle {
   /// Creates a glass style; every value has a tuned default.

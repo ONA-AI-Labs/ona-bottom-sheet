@@ -16,7 +16,6 @@ import '../theme/theme.dart';
 import 'decorations.dart';
 import 'glass_surface.dart';
 import 'keyboard_dismissible.dart';
-import 'native_glass_surface.dart';
 import 'raw_sheet.dart';
 import 'viewport.dart';
 
@@ -143,8 +142,7 @@ class OnaBottomSheet extends StatelessWidget {
 }
 
 extension on OnaBottomSheet {
-  /// The themed surface: an opaque card, or liquid glass (solid when the platform asks for high contrast). The glass
-  /// is Apple's own on iOS 26 and later, and drawn by Flutter elsewhere.
+  /// The themed surface: an opaque card, or liquid glass (solid when the platform asks for high contrast).
   SheetDecoration _surface(BuildContext context, OnaBottomSheetTheme theme) {
     final Color color = backgroundColor ?? theme.backgroundColor;
     final double radius = cornerRadius ?? theme.cornerRadius;
@@ -154,9 +152,8 @@ extension on OnaBottomSheet {
     return switch (effectiveStyle) {
       final GlassSheetStyle glass => SheetDecorationBuilder(
         size: SheetSize.fit,
-        builder: (BuildContext context, Widget child) => nativeGlassSupported
-            ? NativeGlassSheetSurface(style: glass, color: color, cornerRadius: radius, child: child)
-            : GlassSheetSurface(style: glass, color: color, cornerRadius: radius, child: child),
+        builder: (BuildContext context, Widget child) =>
+            GlassSheetSurface(style: glass, color: color, cornerRadius: radius, child: child),
       ),
       SolidSheetStyle() => BoxSheetDecoration(
         size: SheetSize.fit,
