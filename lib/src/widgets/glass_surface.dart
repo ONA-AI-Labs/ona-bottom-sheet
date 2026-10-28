@@ -8,6 +8,18 @@ import '../foundation/model.dart';
 import '../foundation/model_owner.dart';
 import '../theme/style.dart';
 
+/// How solid a glass sheet is at its current position: 0 up to halfway between its lowest and highest stop, rising
+/// smoothly to 1 at the highest. A sheet with one stop, or [GlassSheetStyle.solidAtFull] off, stays glass.
+@internal
+double glassSolidity(SheetModel? model, GlassSheetStyle style) {
+  if (!style.solidAtFull || model == null || !model.hasMetrics) return 0;
+  final double span = model.maxOffset - model.minOffset;
+  if (span < 1) return 0;
+  final double t = ((model.offset - model.minOffset) / span - 0.5) * 2;
+  final double x = t.clamp(0.0, 1.0);
+  return x * x * (3 - 2 * x);
+}
+
 /// The liquid glass surface of a sheet: the page behind, blurred and colour-lifted, under a tint and a light rim,
 /// clipped to the sheet's rounded top.
 ///
@@ -106,18 +118,9 @@ class RenderGlassSheetSurface extends RenderProxyBox {
   /// How solid the pane was when last painted, 0 (glass) to 1 (opaque).
   double _paintedSolidity = -1;
 
-  /// How solid the pane is for the sheet's position: 0 up to halfway between its lowest and highest stop, rising
-  /// smoothly to 1 at the highest. A sheet with one stop, or [GlassSheetStyle.solidAtFull] off, stays glass.
+  /// How solid the pane is now; see [glassSolidity].
   @visibleForTesting
-  double get solidity {
-    final SheetModel? model = _model;
-    if (!_style.solidAtFull || model == null || !model.hasMetrics) return 0;
-    final double span = model.maxOffset - model.minOffset;
-    if (span < 1) return 0;
-    final double t = ((model.offset - model.minOffset) / span - 0.5) * 2;
-    final double x = t.clamp(0.0, 1.0);
-    return x * x * (3 - 2 * x);
-  }
+  double get solidity => glassSolidity(_model, _style);
 
   void _onSheetMoved() {
     if (solidity != _paintedSolidity) markNeedsPaint();

@@ -1,0 +1,93 @@
+import Flutter
+import UIKit
+
+/// Creates the glass surface behind each glass sheet.
+final class OnaGlassSurfaceFactory: NSObject, FlutterPlatformViewFactory {
+  private let messenger: FlutterBinaryMessenger
+
+  init(messenger: FlutterBinaryMessenger) {
+    self.messenger = messenger
+    super.init()
+  }
+
+  func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    FlutterStandardMessageCodec.sharedInstance()
+  }
+
+  func create(
+    withFrame frame: CGRect,
+    viewIdentifier viewId: Int64,
+    arguments args: Any?
+  ) -> FlutterPlatformView {
+    OnaGlassSurface(frame: frame, viewId: viewId, arguments: args as? [String: Any], messenger: messenger)
+  }
+}
+
+/// The view behind a glass sheet: Apple's Liquid Glass (`UIGlassEffect`) in the sheet's shape, a rectangle with
+/// rounded top corners. It never takes a touch; the sheet's Flutter content above it does.
+///
+/// Its own channel, `ona_bottom_sheet/glass_surface_<id>`, takes `update` with any of `cornerRadius`, `dark` and
+/// `hidden` (the sheet has turned solid, so the glass need not be drawn).
+final class OnaGlassSurface: NSObject, FlutterPlatformView {
+  private let container: UIView
+  private let channel: FlutterMethodChannel
+  private var glass: UIView?
+
+  init(frame: CGRect, viewId: Int64, arguments: [String: Any]?, messenger: FlutterBinaryMessenger) {
+    container = UIView(frame: frame)
+    container.backgroundColor = .clear
+    container.isUserInteractionEnabled = false
+    channel = FlutterMethodChannel(
+      name: "\(OnaBottomSheetPlugin.glassSurfaceViewType)_\(viewId)",
+      binaryMessenger: messenger
+    )
+    super.init()
+
+    if #available(iOS 26.0, *) {
+      let glass = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
+      glass.frame = container.bounds
+      glass.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+      glass.isUserInteractionEnabled = false
+      container.addSubview(glass)
+      self.glass = glass
+    }
+    apply(arguments)
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "update" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.apply(call.arguments as? [String: Any])
+      result(nil)
+    }
+  }
+
+  func view() -> UIView {
+    container
+  }
+
+  private func apply(_ arguments: [String: Any]?) {
+    guard let arguments else { return }
+    if let dark = arguments["dark"] as? Bool {
+      // The glass follows the sheet's theme, not the phone's, so it always matches the Flutter content on it.
+      container.overrideUserInterfaceStyle = dark ? .dark : .light
+    }
+    if let hidden = arguments["hidden"] as? Bool {
+      container.isHidden = hidden
+    }
+    if #available(iOS 26.0, *), let glass, let radius = arguments["cornerRadius"] as? NSNumber {
+      let top = UICornerRadius.fixed(radius.doubleValue)
+      glass.cornerConfiguration = .corners(
+        topLeftRadius: top,
+        topRightRadius: top,
+        bottomLeftRadius: .fixed(0),
+        bottomRightRadius: .fixed(0)
+      )
+    }
+  }
+
+  deinit {
+    channel.setMethodCallHandler(nil)
+  }
+}

@@ -1,13 +1,23 @@
 # Changelog
 
+## 0.3.2
+
+- Apple's Liquid Glass is back, exactly as in 0.3.0: on iOS 26 and later a glass sheet is Apple's `UIGlassEffect`,
+  elsewhere the Flutter-drawn pane. The package is an iOS plugin again.
+
 ## 0.3.1
 
-- Apple's Liquid Glass is removed: glass is the Flutter-drawn frosted pane on every platform again, as in 0.2.1. The
-  package is no longer an iOS plugin.
+- Apple's Liquid Glass removed: glass was the Flutter-drawn pane on every platform, as in 0.2.1.
 
 ## 0.3.0
 
-- Glass is Apple's Liquid Glass (`UIGlassEffect`) on iOS 26 and later, drawn by iOS behind the sheet's content.
+- Glass is Apple's Liquid Glass (`UIGlassEffect`) on iOS 26 and later, drawn by iOS behind the sheet's content:
+  - in the sheet's shape, light or dark to match the theme
+  - a veil in the sheet's colour fades in over it toward the highest stop; at the top, iOS stops drawing it
+  - iOS is messaged only when the shape, brightness or visibility changes, never per frame
+- Elsewhere, and before iOS 26, the Flutter-drawn glass stays as it was.
+- The package is now a Flutter plugin on iOS (a small Swift view, CocoaPods and Swift Package Manager). It adds no
+  dependencies.
 
 ## 0.2.1
 
