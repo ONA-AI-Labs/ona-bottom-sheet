@@ -200,6 +200,12 @@ void main() {
     expect((created.values.single.params! as Map<Object?, Object?>)['dark'], true);
   });
 
+  testWidgets('a tint goes to iOS with the glass, as ARGB, and nothing is sent until it changes', (tester) async {
+    await open(tester, style: const OnaSheetStyle.glass(tint: Color(0xFFADBFD3)));
+    expect((created.values.single.params! as Map<Object?, Object?>)['tint'], 0xFFADBFD3);
+    expect(updates, isEmpty);
+  });
+
   testWidgets('a theme change while open restyles the glass in place', (tester) async {
     tester.view
       ..physicalSize = phone * 3
@@ -224,12 +230,15 @@ void main() {
       ),
     );
     await tester.pump();
-    theme.value = OnaBottomSheetTheme.dark.copyWith(style: const OnaSheetStyle.glass(), cornerRadius: 20);
+    theme.value = OnaBottomSheetTheme.dark.copyWith(
+      style: const OnaSheetStyle.glass(tint: Color(0x40ADBFD3)),
+      cornerRadius: 20,
+    );
     // MaterialApp animates a theme change over 200 ms.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(created, hasLength(1), reason: 'updated, not recreated');
-    expect(updates.last, <String, Object>{'cornerRadius': 20.0, 'dark': true, 'hidden': false});
+    expect(updates.last, <String, Object>{'cornerRadius': 20.0, 'dark': true, 'hidden': false, 'tint': 0x40ADBFD3});
   });
 
   testWidgets('closing the sheet disposes its glass', (tester) async {

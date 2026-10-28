@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- `GlassSheetStyle.tint`: a colour mixed into the glass. On iOS 26 and later it is Apple's own glass tint
+  (`UIGlassEffect.tintColor`), sent to iOS only when it changes; the Flutter pane lays it over the blur at
+  `tintOpacity`. A full sheet still turns solid in the theme's background.
+
 ## 0.3.2
 
 - Apple's Liquid Glass is back, exactly as in 0.3.0: on iOS 26 and later a glass sheet is Apple's `UIGlassEffect`,

@@ -8,7 +8,7 @@ be published for other developers. The repo is private and `publish_to: none` fo
 - `flutter pub get`
 - `dart format -l 120 --set-exit-if-changed lib test example/lib example/test`
 - `flutter analyze` (zero issues; strict casts, inference and raw types; every public member documented)
-- `flutter test` (355+ tests; leak tracking and fatal missed taps are on for every test, see `test/flutter_test_config.dart`)
+- `flutter test` (357+ tests; leak tracking and fatal missed taps are on for every test, see `test/flutter_test_config.dart`)
 - `flutter test --coverage`: keep `lib/src` at 90% of lines or above
 - `cd example && flutter test`: the tour's smoke tests
 - `dart run build_runner build --delete-conflicting-outputs`: regenerates `test/src/stubbing.mocks.dart` after an
@@ -38,6 +38,7 @@ be published for other developers. The repo is private and `publish_to: none` fo
   `_FooterScrim`).
 - Everything created is disposed. A leak fails the test suite.
 - No third-party names anywhere except the one retained line in `LICENSE`.
-- The native glass is messaged only when its shape, brightness or visibility changes, never per frame. The view
+- The native glass is messaged only when its shape, brightness, tint or visibility changes, never per frame. Every
+  message carries the whole state; Swift remakes the effect only when the tint changes. The view
   type and channel names in Swift and Dart must match. Swift changes are checked by building the Ona app for the
   iOS 26 simulator and a device; unit tests mock iOS.

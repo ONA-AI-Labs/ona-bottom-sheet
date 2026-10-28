@@ -108,6 +108,17 @@ void main() {
     expect(backdrops(tester), hasLength(1));
   });
 
+  testWidgets('a tint colours the pane at half; at full the pane is the theme background', (tester) async {
+    const Color tint = Color(0xFFADBFD3);
+    await open(tester, style: const OnaSheetStyle.glass(tint: tint));
+    final Finder surface = find.byType(GlassSheetSurface);
+    expect(surface, paints..rect(color: tint.withValues(alpha: 0.62)), reason: 'the tint, at tintOpacity');
+
+    await tester.drag(find.text('Title'), const Offset(0, -600));
+    await settle(tester);
+    expect(surface, paints..rect(color: OnaBottomSheetTheme.light.backgroundColor));
+  });
+
   testWidgets('a sheet with one stop stays glass', (tester) async {
     await open(tester, rows: 3);
     final RenderGlassSheetSurface surface = tester.renderObject(find.byType(GlassSheetSurface));
@@ -199,6 +210,7 @@ void main() {
     expect(glass.copyWith(), glass);
     expect(glass.copyWith(blur: 12).blur, 12);
     expect(glass, isNot(glass.copyWith(solidAtFull: false)));
+    expect(glass, isNot(glass.copyWith(tint: const Color(0xFFADBFD3))));
     expect(OnaSheetStyle.solid, const SolidSheetStyle());
     expect(OnaSheetStyle.solid.hashCode, const SolidSheetStyle().hashCode);
     expect(OnaSheetStyle.solid, isNot(glass));

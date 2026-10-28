@@ -2,6 +2,8 @@
 /// @docImport 'theme.dart';
 library;
 
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 
 /// What an Ona sheet's surface is made of: [solid], or liquid [OnaSheetStyle.glass].
@@ -18,6 +20,7 @@ sealed class OnaSheetStyle {
     double tintOpacity,
     double rimOpacity,
     bool solidAtFull,
+    Color? tint,
   }) = GlassSheetStyle;
 
   /// An opaque surface in the theme's background colour. Costs nothing to draw: the default.
@@ -47,6 +50,9 @@ final class SolidSheetStyle extends OnaSheetStyle {
 /// this pane only. It is one backdrop filter clipped to the sheet's shape, the filter built once and every layer
 /// reused, so a drag repaints and never rebuilds.
 ///
+/// [tint] colours the glass on every platform: Apple's glass takes it as its own tint, and the Flutter pane lays it
+/// over the blur at [tintOpacity] in place of the theme's background. Its alpha sets how strong it is.
+///
 /// With [solidAtFull], as on iOS, the glass turns opaque as the sheet rises to its highest stop and is no longer
 /// drawn once there, so a full sheet reads as a page and costs what a solid one does. A sheet with a single stop stays
 /// glass. When the platform asks for high contrast, the sheet is drawn solid.
@@ -58,6 +64,7 @@ final class GlassSheetStyle extends OnaSheetStyle {
     this.tintOpacity = 0.62,
     this.rimOpacity = 0.55,
     this.solidAtFull = true,
+    this.tint,
   }) : assert(blur >= 0),
        assert(saturation >= 0),
        assert(tintOpacity >= 0 && tintOpacity <= 1),
@@ -78,6 +85,9 @@ final class GlassSheetStyle extends OnaSheetStyle {
   /// Whether the pane turns opaque as the sheet reaches its highest stop, as iOS sheets do.
   final bool solidAtFull;
 
+  /// A colour mixed into the glass; null leaves it clear. A solid sheet is still the theme's background.
+  final Color? tint;
+
   /// A copy with the given values replaced.
   GlassSheetStyle copyWith({
     double? blur,
@@ -85,6 +95,7 @@ final class GlassSheetStyle extends OnaSheetStyle {
     double? tintOpacity,
     double? rimOpacity,
     bool? solidAtFull,
+    Color? tint,
   }) {
     return GlassSheetStyle(
       blur: blur ?? this.blur,
@@ -92,6 +103,7 @@ final class GlassSheetStyle extends OnaSheetStyle {
       tintOpacity: tintOpacity ?? this.tintOpacity,
       rimOpacity: rimOpacity ?? this.rimOpacity,
       solidAtFull: solidAtFull ?? this.solidAtFull,
+      tint: tint ?? this.tint,
     );
   }
 
@@ -102,8 +114,9 @@ final class GlassSheetStyle extends OnaSheetStyle {
       other.saturation == saturation &&
       other.tintOpacity == tintOpacity &&
       other.rimOpacity == rimOpacity &&
-      other.solidAtFull == solidAtFull;
+      other.solidAtFull == solidAtFull &&
+      other.tint == tint;
 
   @override
-  int get hashCode => Object.hash(blur, saturation, tintOpacity, rimOpacity, solidAtFull);
+  int get hashCode => Object.hash(blur, saturation, tintOpacity, rimOpacity, solidAtFull, tint);
 }

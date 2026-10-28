@@ -36,7 +36,7 @@ dependencies:
   ona_bottom_sheet:
     git:
       url: https://github.com/ONA-AI-Labs/ona-bottom-sheet.git
-      ref: v0.3.2
+      ref: v0.4.0
 ```
 
 It needs Flutter 3.41 or later and has no dependencies beyond Flutter and `meta`. On iOS it brings a small plugin of its own, for Apple's glass; there is nothing to set up.
@@ -121,6 +121,9 @@ OnaBottomSheet(style: const OnaSheetStyle.glass(), child: ...)          // one s
   24), its colours are lifted (`saturation` 1.8), the theme's background is laid over it as a tint (`tintOpacity`
   0.62), and a light rim (`rimOpacity`) catches the top edge. These four values shape this pane only; Apple's glass
   is Apple's.
+- `tint` colours the glass on every platform. Apple's glass takes it as its own tint colour, mixed into the material
+  under its highlights; the Flutter pane lays it over the blur at `tintOpacity` in place of the background. Its alpha
+  sets how strong it is. A mid-tone tint lowers the contrast of grey text on the sheet, so check it.
 - As on iOS, the glass turns opaque as the sheet rises to its highest stop (`solidAtFull`). Once there, nothing behind
   it is drawn, so a full sheet costs what a solid one does.
 - A sheet with a single stop stays glass.
@@ -176,7 +179,7 @@ Without an extension, the light or dark default follows `ThemeData.brightness`.
 
 ## Quality
 
-- 355 tests, at 90% line coverage. Leak tracking is on, and missed taps are fatal.
+- 357 tests, at 90% line coverage. Leak tracking is on, and missed taps are fatal.
 - Zero analyzer issues under strict rules (strict casts, inference and raw types, plus documentation on every public member).
 - CI runs formatting, analysis, the tests with coverage, the example's tests and a web build of the example on every push.
 

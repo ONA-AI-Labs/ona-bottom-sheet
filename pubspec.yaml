@@ -2,7 +2,7 @@ name: ona_bottom_sheet
 description: >-
   Bottom sheets that move like the platform's own: detents, a list and its sheet sharing one drag, spring motion,
   keyboard awareness, modal and always-on sheets, theming and accessibility. Built and maintained by Ona.
-version: 0.3.2
+version: 0.4.0
 homepage: https://github.com/ONA-AI-Labs/ona-bottom-sheet
 repository: https://github.com/ONA-AI-Labs/ona-bottom-sheet
 issue_tracker: https://github.com/ONA-AI-Labs/ona-bottom-sheet/issues

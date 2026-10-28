@@ -39,7 +39,7 @@ class GlassSheetSurface extends SingleChildRenderObjectWidget {
   /// How the glass is made.
   final GlassSheetStyle style;
 
-  /// The tint, and the colour the pane turns when solid.
+  /// The tint unless the style has its own, and the colour the pane turns when solid.
   final Color color;
 
   /// The radius of the top corners.
@@ -146,16 +146,17 @@ class RenderGlassSheetSurface extends RenderProxyBox {
       if (solid >= 1) {
         // Fully opaque: nothing behind shows, so nothing is blurred.
         _backdrop.layer = null;
-        _paintPane(context, offset, 1, 0);
+        _paintPane(context, offset, _color, 0);
       } else {
         final BackdropFilterLayer backdrop = _backdrop.layer ??= BackdropFilterLayer();
         backdrop.filter = _filter ??= _buildFilter();
         context.pushLayer(backdrop, (PaintingContext context, Offset offset) {
-          // The rim is a glass highlight: it fades out as the pane turns solid.
+          final Color tint = _style.tint ?? _color;
+          // The tint turns into the solid colour, and the rim, a glass highlight, fades out as the pane turns solid.
           _paintPane(
             context,
             offset,
-            _style.tintOpacity + (1 - _style.tintOpacity) * solid,
+            Color.lerp(tint.withValues(alpha: tint.a * _style.tintOpacity), _color, solid)!,
             _style.rimOpacity * (1 - solid),
           );
         }, offset);
@@ -163,10 +164,10 @@ class RenderGlassSheetSurface extends RenderProxyBox {
     }, oldLayer: _clip.layer);
   }
 
-  void _paintPane(PaintingContext context, Offset offset, double opacity, double rimOpacity) {
+  void _paintPane(PaintingContext context, Offset offset, Color fill, double rimOpacity) {
     final Rect rect = offset & size;
     final Canvas canvas = context.canvas;
-    canvas.drawRect(rect, Paint()..color = _color.withValues(alpha: _color.a * opacity));
+    canvas.drawRect(rect, Paint()..color = fill);
     if (rimOpacity > 0) {
       // A light rim catching the top edge and corners, fading out a little way down the sides.
       final double fade = _cornerRadius + 24;

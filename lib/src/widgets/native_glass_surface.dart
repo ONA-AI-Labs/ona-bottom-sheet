@@ -33,7 +33,7 @@ int iosMajorVersion(String version) => int.tryParse(RegExp(r'\d+').firstMatch(ve
 ///
 /// As the sheet rises to its highest stop, a veil in the sheet's colour fades in over the glass, as
 /// [GlassSheetSurface] does; once the veil is opaque, iOS stops drawing the glass. iOS is only messaged when the
-/// shape, the theme's brightness or that visibility changes, never per frame.
+/// shape, the theme's brightness, the tint or that visibility changes, never per frame.
 @internal
 class NativeGlassSheetSurface extends StatefulWidget {
   /// Creates the native glass surface around [child], the sheet.
@@ -45,7 +45,7 @@ class NativeGlassSheetSurface extends StatefulWidget {
     required this.child,
   });
 
-  /// When the sheet turns solid; the blur, saturation, tint and rim are Apple's.
+  /// The glass's tint, and when the sheet turns solid; the blur, saturation and rim are Apple's.
   final GlassSheetStyle style;
 
   /// The colour the sheet turns when solid; its brightness picks the glass's light or dark look.
@@ -69,12 +69,9 @@ class _NativeGlassSheetSurfaceState extends State<NativeGlassSheetSurface> {
   late double _sentRadius;
   late bool _sentDark;
   late bool _sentHidden;
+  Color? _sentTint;
 
-  late final Map<String, Object> _creationParams = <String, Object>{
-    'cornerRadius': _sentRadius = widget.cornerRadius,
-    'dark': _sentDark = _dark,
-    'hidden': _sentHidden = _hidden,
-  };
+  late final Map<String, Object> _creationParams = _tell();
 
   bool get _dark => ThemeData.estimateBrightnessForColor(widget.color) == Brightness.dark;
 
@@ -107,23 +104,32 @@ class _NativeGlassSheetSurfaceState extends State<NativeGlassSheetSurface> {
     _sync();
   }
 
-  /// Tells iOS whatever changed since it was last told.
+  /// The glass's whole state, as a message, remembered as what iOS was last told. No `tint` means none.
+  Map<String, Object> _tell() {
+    _sentRadius = widget.cornerRadius;
+    _sentDark = _dark;
+    _sentHidden = _hidden;
+    _sentTint = widget.style.tint;
+    return <String, Object>{
+      'cornerRadius': _sentRadius,
+      'dark': _sentDark,
+      'hidden': _sentHidden,
+      if (_sentTint case final Color tint) 'tint': tint.toARGB32(),
+    };
+  }
+
+  /// Tells iOS the glass's state when any of it changed since it was last told.
   void _sync() {
     final MethodChannel? channel = _channel;
     if (channel == null) return;
-    final double radius = widget.cornerRadius;
-    final bool dark = _dark;
-    final bool hidden = _hidden;
-    if (radius == _sentRadius && dark == _sentDark && hidden == _sentHidden) return;
-    _sentRadius = radius;
-    _sentDark = dark;
-    _sentHidden = hidden;
+    if (widget.cornerRadius == _sentRadius &&
+        _dark == _sentDark &&
+        _hidden == _sentHidden &&
+        widget.style.tint == _sentTint) {
+      return;
+    }
     // A closing sheet can lose its view before the message lands; the look no longer matters then.
-    channel.invokeMethod<void>('update', <String, Object>{
-      'cornerRadius': radius,
-      'dark': dark,
-      'hidden': hidden,
-    }).ignore();
+    channel.invokeMethod<void>('update', _tell()).ignore();
   }
 
   @override
